@@ -1,6 +1,6 @@
-= OpenLDAP Server
+# OpenLDAP Server
 
-== Configuration
+## Configuration
 
 OpenLDAP serve in Ubuntu default configuration. Initial setup is configured though environment variables.
 
@@ -24,7 +24,7 @@ Volumes:
 - /etc/ldap
 - /var/lib/ldap
 
-== Example
+## Example
 
 Start your openLDAP server:
 ```
@@ -39,4 +39,4 @@ docker run -it --rm --name openldap \
 
 Now you can access your LDAP, e.g. through apache directory studio.
 
-To access `cn=config`, set `cn=config` as root and use the administrator account, here `cn=admin,dc=my-company,dc=com` and passwortd `1234567890`.
+To access `cn=config`, set `cn=config` as root and use the administrator account for binding, here `cn=admin,dc=my-company,dc=com` and passwortd `1234567890`.
