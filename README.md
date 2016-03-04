@@ -9,9 +9,10 @@ Environment Variables:
     Your domain name, e.g. `example.org`. The distinguish name is created from this domain, e.g. as `cn=example,cn=org`.
 - ORGANIZATION (mandatory) 
     The name of your organization, e.g. `Example Organization`.
-- PASSWORD (mandatory) 
+- PASSWORD (optional) 
     Administrator password, account is derieved from DOMAIN, e.g. `cn=admin,dc=example,dc=org`.
-- DEBUG
+    If not given, a password is generated and written to docker logs.
+- DEBUG (optional) 
     Specifies the debug level, defaults to 0 (no debug output)
 
 Ports:

@@ -7,7 +7,7 @@ ENV PASSWORD      ""
 ENV DEBUG         0
 
 RUN apt-get update
-RUN apt-get install -y slapd ldap-utils debconf-utils
+RUN apt-get install -y slapd ldap-utils debconf-utils pwgen
 RUN touch /firstrun
 
 CMD if test -e /firstrun; then \
@@ -20,8 +20,8 @@ CMD if test -e /firstrun; then \
         exit 1; \
       fi; \
       if test -z "${PASSWORD}"; then \
-        echo "Specifying a password is mandatory, use -e PASSWORD=your-password" 1>&2; \
-        exit 1; \
+        export PASSWORD=$(pwgen 20 1); \
+        echo "Administrator Password: $PASSWORD"; \
       fi; \
       echo "Configuration ..."; \
       ( echo "slapd slapd/internal/generated_adminpw password ${PASSWORD}"; \
