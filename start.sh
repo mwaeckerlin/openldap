@@ -70,6 +70,21 @@ olcRootPW: $(slappasswd -s '${PASSWORD}')
 EOF
 }
 
+function disallowAnonymousBind() {
+    echo "  disallow anonymous bind"
+    ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
+dn: cn=config
+changetype: modify
+add: olcDisallows
+olcDisallows: bind_anon
+
+dn: olcDatabase={-1}frontend,cn=config
+changetype: modify
+add: olcRequires
+olcRequires: authc
+EOF
+}
+
 function reconfigure() {
     echo "   reconfigure: ${ORGANIZATION} on ${DOMAIN}"
     debconf-set-selections <<EOF
