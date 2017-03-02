@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM mwaeckerlin/ubuntu-base
 MAINTAINER mwaeckerlin
 ENV TERM xterm
 
