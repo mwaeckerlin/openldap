@@ -1,6 +1,12 @@
 #!/bin/bash -e
 
+function fixperm() {
+    chown -R openldap /var/lib/ldap /etc/ldap/slapd.d
+    chgrp openldap /ssl/private
+}
+
 function start() {
+    fixperm
     /usr/sbin/slapd -d ${DEBUG} \
     -h "ldap:/// ldapi:///" \
     -g openldap -u openldap \
@@ -8,6 +14,7 @@ function start() {
 }
 
 function startbg() {
+    fixperm
     /usr/sbin/slapd -d 0 \
     -h "ldap:/// ldapi:///" \
     -g openldap -u openldap \
@@ -101,7 +108,7 @@ EOF
     dpkg-reconfigure -f noninteractive slapd > /dev/null
 }
 
-if test -e /firstrun; then
+if ! test -e /PASSWORD; then
     if test -z "${DOMAIN}"; then
         echo "Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
         exit 1
@@ -112,6 +119,7 @@ if test -e /firstrun; then
     fi
     if test -z "${PASSWORD}"; then
         export PASSWORD=$(pwgen 20 1)
+        cat > /PASSWORD <<<"$PASSWORD"
     fi
     echo "Configuration ..."
     reconfigure
@@ -120,10 +128,9 @@ if test -e /firstrun; then
     setConfigPWD
     checkCerts
     stopbg
-    rm /firstrun
     echo "Configuration done."
 fi
 echo "starting slapd ..."
-echo "Administrator Password: $PASSWORD"
+echo "Administrator Password: $(</PASSWORD)"
 start
 echo "Error: slapd terminated"

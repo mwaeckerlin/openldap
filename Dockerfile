@@ -11,7 +11,6 @@ RUN echo "slapd slapd/password1 password test" | debconf-set-selections
 RUN echo "slapd slapd/password2 password test" | debconf-set-selections
 RUN apt-get update
 RUN apt-get install -y slapd ldap-utils debconf-utils pwgen
-RUN touch /firstrun
 RUN mkdir /ssl
 RUN mkdir /ssl/certs
 RUN mkdir /ssl/private
