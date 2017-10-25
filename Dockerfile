@@ -22,7 +22,7 @@ CMD /start.sh
 EXPOSE 389
 EXPOSE 636
 
-VOLUME /ssl
+VOLUME /etc/letsencrypt
 VOLUME /var/backups
 VOLUME /etc/ldap
 VOLUME /var/lib/ldap

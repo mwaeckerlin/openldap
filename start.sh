@@ -37,6 +37,8 @@ function checkConfig() {
 }
 
 function checkCerts() {
+    local certfile=
+    local keyfile=
     echo -n "  check certificates ... "
     if test -e /ssl/certs/${DOMAIN}-ca.crt \
          -a -e /ssl/private/${DOMAIN}.key \
@@ -108,29 +110,31 @@ EOF
     dpkg-reconfigure -f noninteractive slapd > /dev/null
 }
 
-if ! test -e /PASSWORD; then
-    if test -z "${DOMAIN}"; then
-        echo "Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
-        exit 1
-    fi
-    if test -z "${ORGANIZATION}"; then
-        echo "Specifying am organization is mandatory, use -e ORGANIZATION=\"Example Organization\"" 1>&2
-        exit 1
-    fi
-    if test -z "${PASSWORD}"; then
-        export PASSWORD=$(pwgen 20 1)
-        cat > /PASSWORD <<<"$PASSWORD"
-    fi
-    echo "Configuration ..."
-    reconfigure
-    startbg
-    checkConfig
-    setConfigPWD
-    checkCerts
-    stopbg
-    echo "Configuration done."
+if test -z "${DOMAIN}"; then
+    echo "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
+    exit 1
 fi
+if test -z "${ORGANIZATION}"; then
+    echo "ERROR: Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\"" 1>&2
+    exit 1
+fi
+if test -z "${PASSWORD}"; then
+    if test -e /etc/ldap/password; then
+        export PASSWORD="$(</etc/ldap/password)"
+    else
+        export PASSWORD=$(pwgen 20 1)
+        cat > /etc/ldap/password <<<"$PASSWORD"
+    fi
+fi
+echo "Configuration ..."
+reconfigure
+startbg
+checkConfig
+setConfigPWD
+checkCerts
+stopbg
+echo "Configuration done."
+echo "**** Administrator Password: $(</etc/ldap/password)"
 echo "starting slapd ..."
-echo "Administrator Password: $(</PASSWORD)"
 start
 echo "Error: slapd terminated"
