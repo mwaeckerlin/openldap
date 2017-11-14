@@ -69,13 +69,10 @@ EOF
 function setConfigPWD() {
     echo "  set cn=config password"
     ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
-dn: cn=config
-changetype: modify
-
 dn: olcDatabase={0}config,cn=config
 changetype: modify
 replace: olcRootPW
-olcRootPW: $(slappasswd -s '${PASSWORD}')
+olcRootPW: ${PASSWORD}
 EOF
 }
 
@@ -134,7 +131,7 @@ setConfigPWD
 checkCerts
 stopbg
 echo "Configuration done."
-echo "**** Administrator Password: $(</etc/ldap/password)"
+echo "**** Administrator Password: ${PASSWORD}"
 echo "starting slapd ..."
 start
 echo "Error: slapd terminated"
