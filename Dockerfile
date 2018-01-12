@@ -11,6 +11,7 @@ RUN echo "slapd slapd/password1 password test" | debconf-set-selections
 RUN echo "slapd slapd/password2 password test" | debconf-set-selections
 RUN apt-get update
 RUN apt-get install -y slapd ldap-utils debconf-utils pwgen
+RUN usermod -a -G ssl-cert openldap
 RUN mv /etc/ldap /etc/ldap.original
 RUN mv /var/lib/ldap /var/lib/ldap.original
 RUN mkdir /etc/ldap /var/lib/ldap
