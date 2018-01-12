@@ -1,5 +1,7 @@
 # OpenLDAP Server
 
+See also: https://marc.wäckerlin.ch/computer/setup-openldap-server-in-docker
+
 ## Configuration
 
 OpenLDAP serve in Ubuntu default configuration. Initial setup is configured though environment variables.
