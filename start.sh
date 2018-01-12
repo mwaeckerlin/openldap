@@ -1,8 +1,18 @@
 #!/bin/bash -e
 
+echo "restore configuration"
+for f in /etc/ldap /var/lib/ldap; do
+    if [ ! -z "$(ls -A $f.original)" ]; then
+        if [ -z "$(ls -A $f)" ]; then
+            cp -a $f.original/* $f/
+            chown -R openldap.openldap $f
+        fi
+        rm -rf $f.original
+    fi
+done
+
 function fixperm() {
     chown -R openldap /var/lib/ldap /etc/ldap/slapd.d
-    chgrp openldap /ssl/private
 }
 
 function start() {
@@ -38,29 +48,26 @@ function checkConfig() {
 
 function checkCerts() {
     echo -n "  check certificates ... "
-    if test -e /ssl/certs/${DOMAIN}-ca.crt \
-         -a -e /ssl/private/${DOMAIN}.key \
-         -a -e /ssl/certs/${DOMAIN}.pem; then
+    if test -e /ssl/live/${DOMAIN}/chain.pem \
+         -a -e /ssl/live/${DOMAIN}/privkey.pem \
+         -a -e /ssl/live/${DOMAIN}/cert.pem; then
         echo "found"
         chmod o= /ssl/private
         chgrp openldap /ssl/private
         ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
 dn: cn=config
 add: olcTLSCACertificateFile
-olcTLSCACertificateFile: /ssl/certs/${DOMAIN}-ca.crt
+olcTLSCACertificateFile: /ssl/live/${DOMAIN}/chain.pem
 -
 add: olcTLSCertificateKeyFile
-olcTLSCertificateKeyFile: /ssl/private/${DOMAIN}.key
+olcTLSCertificateKeyFile: /ssl/live/${DOMAIN}/privkey.pem
 -
 add: olcTLSCertificateFile
-olcTLSCertificateFile: /ssl/certs/${DOMAIN}.pem
+olcTLSCertificateFile: /ssl/live/${DOMAIN}/cert.pem
 EOF
     else
         echo "no"
-        echo "   to activate TLS/SSL, please install:"
-        echo "    - /ssl/certs/${DOMAIN}-ca.crt"
-        echo "    - /ssl/private/${DOMAIN}.key"
-        echo "    - /ssl/certs/${DOMAIN}.pem"
+        echo "   to activate TLS/SSL, please mount /etc/letsencrypt to /ssl"
     fi
 }
 
