@@ -66,15 +66,15 @@ function checkCerts() {
          -a -e /ssl/live/${DOMAIN}/privkey.pem \
          -a -e /ssl/live/${DOMAIN}/cert.pem; then
         echo "found"
-        ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
+        ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=config
-add: olcTLSCACertificateFile
+replace: olcTLSCACertificateFile
 olcTLSCACertificateFile: /ssl/live/${DOMAIN}/chain.pem
 -
-add: olcTLSCertificateKeyFile
+replace: olcTLSCertificateKeyFile
 olcTLSCertificateKeyFile: /ssl/live/${DOMAIN}/privkey.pem
 -
-add: olcTLSCertificateFile
+replace: olcTLSCertificateFile
 olcTLSCertificateFile: /ssl/live/${DOMAIN}/cert.pem
 EOF
     else
@@ -85,7 +85,7 @@ EOF
 
 function setConfigPWD() {
     echo -n "  set cn=config password ... "
-    ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
+    ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: olcDatabase={0}config,cn=config
 changetype: modify
 replace: olcRootPW
@@ -96,7 +96,7 @@ EOF
 
 function disallowAnonymousBind() {
     echo -n "  disallow anonymous bind ... "
-    ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
+    ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=config
 changetype: modify
 add: olcDisallows
@@ -111,12 +111,16 @@ EOF
 }
 
 function reconfigure() {
-    echo -n "   reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
+    echo -n "  reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
     BASEDN="dc=${DOMAIN//./,dc=}"
     if ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null; then
         echo "done."
     else
-        echo "failed."
+        res=$?
+        case "$res" in
+            (68) echo "already configured";;
+            (*) echo "failed: $res.";;
+        esac
     fi <<EOF
 dn: ${BASEDN}
 objectClass: top
@@ -135,7 +139,7 @@ EOF
 }
 
 function backup() {
-    echo -n "   backup ... "
+    echo -n "  backup ... "
     slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldif && echo -n "${DATE}-startup-config.ldif "
     slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldif && echo -n "${DATE}-startup-data.ldif "
     echo "done."
@@ -146,7 +150,7 @@ function restore() {
         return
     fi
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-    echo -n "   restoring ... "
+    echo -n "  restoring ... "
     if test -e /var/restore/config.ldif; then
         echo -n "config "
         slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
