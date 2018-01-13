@@ -136,8 +136,10 @@ function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
         return
     fi
-    echo -n "   restoring ... "
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
+    startbg
+    stopbg
+    echo -n "   restoring ... "
     if test -e /var/restore/config.ldif; then
         echo -n "config "
         slapadd -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
@@ -158,6 +160,7 @@ function restore() {
 
 DATE=$(date '+%Y%m%d%H%m')
 
+echo "Configuration ..."
 restoreconfig
 
 if test -z "${DOMAIN}"; then
@@ -178,13 +181,13 @@ if test -z "${PASSWORD}"; then
 fi
 echo "Configuration ..."
 backup
-restore
 reconfigure
 startbg
 checkConfig
 setConfigPWD
 checkCerts
 stopbg
+restore
 echo "Configuration done."
 echo "**** Administrator Password: ${PASSWORD}"
 echo "starting slapd ..."
