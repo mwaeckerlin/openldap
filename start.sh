@@ -1,17 +1,20 @@
 #!/bin/bash -e
 
 function restoreconfig() {
+    local restored=$(ls -1A /etc/ldap/slapd.d | wc -l)
     echo -n  "  restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
                 cp -a $f.original/* $f/
                 chown -R openldap.openldap $f
+                restored=1
             fi
             rm -rf $f.original
         fi
     done
     echo "done."
+    test "$restored"-eq 0 || reconfigure
 }
 
 function fixperm() {
@@ -112,18 +115,24 @@ EOF
 
 function reconfigure() {
     echo -n "   reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
-    debconf-set-selections <<EOF
-slapd slapd/internal/generated_adminpw password ${PASSWORD}
-slapd slapd/internal/adminpw password ${PASSWORD}
-slapd slapd/password1 password ${PASSWORD}
-slapd slapd/password2 password ${PASSWORD}
-slapd shared/organization string ${ORGANIZATION}
-slapd slapd/purge_database boolean false
-slapd slapd/backend select HDB
-slapd slapd/allow_ldap_v2 boolean false
-slapd slapd/domain string ${DOMAIN}
+    BASEDN="dc=${DOMAIN//./,dc=}"
+    slapadd -c -n 0 <<EOF
+dn: ${BASEDN}
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: ${ORGANIZATION}
+dc: ${DOMAIN%%.*}
+structuralObjectClass: organization
+
+dn: cn=admin,${BASEDN}
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: admin
+description: LDAP administrator
+userPassword: ${PASSWORD}
+structuralObjectClass: organizationalRole
 EOF
-    dpkg-reconfigure -f noninteractive slapd > /dev/null
     echo "done."
 }
 
@@ -139,7 +148,6 @@ function restore() {
         return 1
     fi
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-    reconfigure
     echo -n "   restoring ... "
     if test -e /var/restore/config.ldif; then
         echo -n "config "
@@ -182,7 +190,7 @@ if test -z "${PASSWORD}"; then
 fi
 
 backup
-restore || reconfigure
+restore
 startbg
 checkConfig
 setConfigPWD
