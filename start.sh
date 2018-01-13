@@ -179,15 +179,15 @@ if test -z "${PASSWORD}"; then
         cat > /etc/ldap/password <<<"$PASSWORD"
     fi
 fi
-echo "Configuration ..."
+
 backup
+restore
 reconfigure
 startbg
 checkConfig
 setConfigPWD
 checkCerts
 stopbg
-restore
 echo "Configuration done."
 echo "**** Administrator Password: ${PASSWORD}"
 echo "starting slapd ..."
