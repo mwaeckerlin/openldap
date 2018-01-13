@@ -1,20 +1,17 @@
 #!/bin/bash -e
 
 function restoreconfig() {
-    local restored=$(ls -1A /etc/ldap/slapd.d | wc -l)
     echo -n  "  restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
                 cp -a $f.original/* $f/
                 chown -R openldap.openldap $f
-                restored=1
             fi
             rm -rf $f.original
         fi
     done
     echo "done."
-    test "$restored"-eq 0 || reconfigure
 }
 
 function fixperm() {
@@ -116,7 +113,7 @@ EOF
 function reconfigure() {
     echo -n "   reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
     BASEDN="dc=${DOMAIN//./,dc=}"
-    slapadd -c -n 0 <<EOF
+    slapadd -c -n 1 <<EOF
 dn: ${BASEDN}
 objectClass: top
 objectClass: dcObject
@@ -191,6 +188,7 @@ fi
 
 backup
 restore
+reconfigure
 startbg
 checkConfig
 setConfigPWD
