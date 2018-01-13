@@ -136,27 +136,24 @@ function backup() {
 
 function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
-        return
+        return 1
     fi
-    echo -n "   remove database ... "
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-    echo "done."
-    startbg
-    stopbg
+    reconfigure
     echo -n "   restoring ... "
     if test -e /var/restore/config.ldif; then
         echo -n "config "
-        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
+        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
         mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
     else
-        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
+        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
     fi
     if test -e /var/restore/data.ldif; then
         echo -n "data "
-        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
+        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
         mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
     else
-        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
+        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
     fi
     chown -R openldap.openldap /etc/ldap/slapd.d
     echo "done."
@@ -185,8 +182,7 @@ if test -z "${PASSWORD}"; then
 fi
 
 backup
-restore
-reconfigure
+restore || reconfigure
 startbg
 checkConfig
 setConfigPWD
