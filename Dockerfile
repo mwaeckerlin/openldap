@@ -26,3 +26,5 @@ VOLUME /ssl
 VOLUME /var/backups
 VOLUME /etc/ldap
 VOLUME /var/lib/ldap
+VOLUME /var/restore
+

@@ -1,15 +1,18 @@
 #!/bin/bash -e
 
-echo "restore configuration"
-for f in /etc/ldap /var/lib/ldap; do
-    if [ ! -z "$(ls -A $f.original)" ]; then
-        if [ -z "$(ls -A $f)" ]; then
-            cp -a $f.original/* $f/
-            chown -R openldap.openldap $f
+function restoreconfig() {
+    echo "restoring configuration ... "
+    for f in /etc/ldap /var/lib/ldap; do
+        if [ ! -z "$(ls -A $f.original)" ]; then
+            if [ -z "$(ls -A $f)" ]; then
+                cp -a $f.original/* $f/
+                chown -R openldap.openldap $f
+            fi
+            rm -rf $f.original
         fi
-        rm -rf $f.original
-    fi
-done
+    done
+    echo "done."
+}
 
 function fixperm() {
     chown -R openldap /var/lib/ldap /etc/ldap/slapd.d
@@ -122,6 +125,44 @@ EOF
     echo "done."
 }
 
+function backup() {
+    if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
+        return
+    fi
+    echo -n "   backup ... "
+    slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldap && echo -n "${DATE}-startup-config.ldap "
+    slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldap && echo -n "${DATE}-startup-data.ldap "
+    echo "done."
+}
+
+function restore() {
+    if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
+        return
+    fi
+    echo -n "   restoring ... "
+    rm -rf /etc/ldap/slapd.d
+    if test -e /var/restore/config.ldif; then
+        echo -n "config "
+        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
+        mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldap
+    else
+        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldap
+    fi
+    if test -e /var/restore/data.ldif; then
+        echo -n "data "
+        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
+        mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldap
+    else
+        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldap
+    fi
+    chown -R openldap.openldap /etc/ldap/slapd.d
+    echo "done."
+}
+
+DATE=$(date '+%Y%m%d%H%m')
+
+restoreconfig
+
 if test -z "${DOMAIN}"; then
     echo "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
     exit 1
@@ -139,6 +180,8 @@ if test -z "${PASSWORD}"; then
     fi
 fi
 echo "Configuration ..."
+backup
+restore
 reconfigure
 startbg
 checkConfig

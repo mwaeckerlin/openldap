@@ -42,4 +42,18 @@ docker run -it --rm --name openldap \
 
 Now you can access your LDAP, e.g. through apache directory studio.
 
-To access `cn=config`, set `cn=config` as root and use the administrator account for binding, here `cn=admin,dc=my-company,dc=com` and passwortd `1234567890`.
+To access `cn=config`, set `cn=config` as root and use the administrator account for binding, here `cn=admin,dc=my-company,dc=com` and password `1234567890`.
+
+Restore a Backup
+----------------
+
+You can create backups easily, to generate config in `config.ldif` and data in `data.ldif`:
+
+    slapcat -n 0 -l config.ldif
+    slapcat -n 1 -l data.ldif
+
+To restore the backup file, copy a file named `config.ldif` that contains the configuration and a file named `data.ldif` in the volume `/var/restore`, then restart the container.
+
+After successful restore, the file will be moved to volume `/var/backups/<date>-restored-<config|data>.ldif`.
+
+At every restart, a backup is generated, i.e. before restore in `/var/backups/<date>-startup-<config|data>.ldif`.
