@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 function restoreconfig() {
-    echo "restoring configuration ... "
+    echo -n  "  restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
@@ -126,9 +126,6 @@ EOF
 }
 
 function backup() {
-    if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
-        return
-    fi
     echo -n "   backup ... "
     slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldap && echo -n "${DATE}-startup-config.ldap "
     slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldap && echo -n "${DATE}-startup-data.ldap "
