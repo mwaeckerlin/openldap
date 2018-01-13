@@ -113,14 +113,17 @@ EOF
 function reconfigure() {
     echo -n "   reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
     BASEDN="dc=${DOMAIN//./,dc=}"
-    slapadd -c -n 1 <<EOF
+    if ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null; then
+        echo "done."
+    else
+        echo "failed."
+    fi <<EOF
 dn: ${BASEDN}
 objectClass: top
 objectClass: dcObject
 objectClass: organization
 o: ${ORGANIZATION}
 dc: ${DOMAIN%%.*}
-structuralObjectClass: organization
 
 dn: cn=admin,${BASEDN}
 objectClass: simpleSecurityObject
@@ -128,9 +131,7 @@ objectClass: organizationalRole
 cn: admin
 description: LDAP administrator
 userPassword: ${PASSWORD}
-structuralObjectClass: organizationalRole
 EOF
-    echo "done."
 }
 
 function backup() {
@@ -142,7 +143,7 @@ function backup() {
 
 function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
-        return 1
+        return
     fi
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
     echo -n "   restoring ... "
@@ -188,8 +189,8 @@ fi
 
 backup
 restore
-reconfigure
 startbg
+reconfigure
 checkConfig
 setConfigPWD
 checkCerts
