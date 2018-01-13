@@ -61,8 +61,6 @@ function checkCerts() {
          -a -e /ssl/live/${DOMAIN}/privkey.pem \
          -a -e /ssl/live/${DOMAIN}/cert.pem; then
         echo "found"
-        chmod o= /ssl/private
-        chgrp openldap /ssl/private
         ldapmodify -Y external -H ldapi:/// > /dev/null <<EOF
 dn: cn=config
 add: olcTLSCACertificateFile
