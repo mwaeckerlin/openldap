@@ -201,9 +201,9 @@ export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 backup
 restore
 startbg
+setConfigPWD
 reconfigure
 checkConfig
-setConfigPWD
 checkCerts
 stopbg
 echo "Configuration done."
