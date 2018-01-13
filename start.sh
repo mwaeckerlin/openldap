@@ -137,7 +137,7 @@ function restore() {
         return
     fi
     echo -n "   restoring ... "
-    rm -rf /etc/ldap/slapd.d
+    rm -rf /etc/ldap/slapd.d/*
     if test -e /var/restore/config.ldif; then
         echo -n "config "
         slapadd -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
