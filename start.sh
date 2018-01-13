@@ -15,6 +15,8 @@ function restoreconfig() {
 }
 
 function fixperm() {
+    test -d /var/lib/ldap || mkdir -p /var/lib/ldap
+    test -d /etc/ldap/slapd.d || mkdir -p /etc/ldap/slapd.d
     chown -R openldap /var/lib/ldap /etc/ldap/slapd.d
 }
 
