@@ -127,8 +127,8 @@ EOF
 
 function backup() {
     echo -n "   backup ... "
-    slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldap && echo -n "${DATE}-startup-config.ldap "
-    slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldap && echo -n "${DATE}-startup-data.ldap "
+    slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldif && echo -n "${DATE}-startup-config.ldif "
+    slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldif && echo -n "${DATE}-startup-data.ldif "
     echo "done."
 }
 
@@ -137,20 +137,20 @@ function restore() {
         return
     fi
     echo -n "   restoring ... "
-    rm -rf /etc/ldap/slapd.d/*
+    rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
     if test -e /var/restore/config.ldif; then
         echo -n "config "
         slapadd -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
-        mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldap
+        mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
     else
-        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldap
+        slapadd -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
     fi
     if test -e /var/restore/data.ldif; then
         echo -n "data "
         slapadd -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
-        mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldap
+        mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
     else
-        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldap
+        slapadd -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
     fi
     chown -R openldap.openldap /etc/ldap/slapd.d
     echo "done."
