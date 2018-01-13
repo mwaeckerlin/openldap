@@ -136,7 +136,9 @@ function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
         return
     fi
+    echo -n "   remove database ... "
     rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
+    echo "done."
     startbg
     stopbg
     echo -n "   restoring ... "
