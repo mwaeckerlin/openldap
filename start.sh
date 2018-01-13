@@ -85,11 +85,17 @@ EOF
 
 function setConfigPWD() {
     echo -n "  set cn=config password ... "
-    ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
+    ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
+dn: olcDatabase={1}hdb,cn=config
+changetype: modify
+replace: olcRootPW
+olcRootPW: ${PASSWD}
+-
+
 dn: olcDatabase={0}config,cn=config
 changetype: modify
 replace: olcRootPW
-olcRootPW: ${PASSWORD}
+olcRootPW: ${PASSWD}
 EOF
     echo "done."
 }
@@ -112,7 +118,6 @@ EOF
 
 function reconfigure() {
     echo -n "  reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
-    BASEDN="dc=${DOMAIN//./,dc=}"
     if ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null; then
         echo "done."
     else
@@ -134,7 +139,7 @@ objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: admin
 description: LDAP administrator
-userPassword: ${PASSWORD}
+userPassword: ${PASSWD}
 EOF
 }
 
@@ -190,6 +195,8 @@ if test -z "${PASSWORD}"; then
         cat > /etc/ldap/password <<<"$PASSWORD"
     fi
 fi
+export BASEDN="dc=${DOMAIN//./,dc=}"
+export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 backup
 restore
