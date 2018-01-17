@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 function restoreconfig() {
     echo -n  "  restoring configuration ... "
@@ -197,6 +197,8 @@ if test -z "${PASSWORD}"; then
 fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
+
+db_recover -v
 
 backup
 restore
