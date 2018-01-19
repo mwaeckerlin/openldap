@@ -198,7 +198,10 @@ fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
+echo -n "  recover database... "
+cd /var/lib/ldap
 db_recover -v
+echo "done."
 
 backup
 restore
