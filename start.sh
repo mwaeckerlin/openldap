@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 function restoreconfig() {
     echo -n  "  restoring configuration ... "
@@ -152,25 +152,28 @@ function backup() {
 
 function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
-        return
-    fi
-    rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-    echo -n "  restoring ... "
-    if test -e /var/restore/config.ldif; then
-        echo -n "config "
-        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
-        mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
+        echo -n "  recover database... "
+        cd /var/lib/ldap
+        db_recover -v
     else
-        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
+        rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
+        echo -n "  restoring ... "
+        if test -e /var/restore/config.ldif; then
+            echo -n "config "
+            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
+            mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
+        else
+            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
+        fi
+        if test -e /var/restore/data.ldif; then
+            echo -n "data "
+            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
+            mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
+        else
+            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
+        fi
+        chown -R openldap.openldap /etc/ldap/slapd.d
     fi
-    if test -e /var/restore/data.ldif; then
-        echo -n "data "
-        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
-        mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
-    else
-        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
-    fi
-    chown -R openldap.openldap /etc/ldap/slapd.d
     echo "done."
 }
 
@@ -197,11 +200,6 @@ if test -z "${PASSWORD}"; then
 fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
-
-echo -n "  recover database... "
-cd /var/lib/ldap
-db_recover -v
-echo "done."
 
 backup
 restore
