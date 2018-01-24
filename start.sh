@@ -155,6 +155,7 @@ function restore() {
         echo -n "  recover database... "
         cd /var/lib/ldap
         db_recover -v
+        return 1
     else
         rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
         echo -n "  restoring ... "
@@ -175,6 +176,7 @@ function restore() {
         chown -R openldap.openldap /etc/ldap/slapd.d
     fi
     echo "done."
+    return 0
 }
 
 DATE=$(date '+%Y%m%d%H%m')
@@ -201,8 +203,7 @@ fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
-backup
-restore
+restore || backup
 startbg
 setConfigPWD
 reconfigure
