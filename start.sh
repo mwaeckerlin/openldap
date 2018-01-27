@@ -240,14 +240,14 @@ EOF
     # database replication
     echo -n "data "
     ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
-dn: olcOverlay=syncprov,olcDatabase={2}hdb,cn=config
+dn: olcOverlay=syncprov,olcDatabase={1}hdb,cn=config
 changetype: add
 objectClass: olcOverlayConfig
 objectClass: olcSyncProvConfig
 olcOverlay: syncprov
 EOF
     ldapmodify -Y EXTERNAL  -H ldapi:/// <<EOF
-dn: olcDatabase={2}hdb,cn=config
+dn: olcDatabase={1}hdb,cn=config
 changetype: modify
 replace: olcSuffix
 olcSuffix: dc=itzgeek,dc=local
