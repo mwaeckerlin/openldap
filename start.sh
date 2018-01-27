@@ -179,6 +179,112 @@ function restore() {
     return 0
 }
 
+function multimaster() {
+    echo -n "  multimaster ... "
+    # load module
+    echo -n "module "
+    ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
+dn: cn=module,cn=config
+objectClass: olcModuleList
+cn: module
+olcModulePath: /usr/lib/ldap
+olcModuleLoad: syncprov.la
+EOF
+    # config replication
+    local masters=( ${MULTI_MASTER_REPLICATION} )
+    local serverid=
+    for ((i=0; i<${#masters[@]}; ++i)); do
+        if test "${masters[$i]}" == "${SERVER_NAME}"; then
+            serverid=$((i+1))
+            break;
+        fi
+    done
+    test -n "$serverid"
+    echo -n "config for ${SERVER_NAME} as $serverid "
+    ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+dn: cn=config
+changetype: modify
+add: olcServerID
+olcServerID: ${serverid}
+EOF
+    ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+dn: cn=config
+changetype: modify
+replace: olcServerID
+$(
+    for ((i=0; i<${#masters[@]}; ++i)); do
+      echo "olcServerID: $((i+1)) ldap://${masters[$i]}"
+    done
+)
+
+dn: olcOverlay=syncprov,olcDatabase={0}config,cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+
+dn: olcDatabase={0}config,cn=config
+changetype: modify
+add: olcSyncRepl
+$(
+    for ((i=0; i<${#masters[@]}; ++i)); do
+      printf 'olcSyncRepl: rid=%03d provider=ldap://%s binddn="cn=config"\n' $((i+1)) ${masters[$i]};
+      echo '  bindmethod=simple credentials=x searchbase="cn=config"'
+      echo '  type=refreshAndPersist retry="5 5 300 5" timeout=1'
+    done
+)
+-
+add: olcMirrorMode
+olcMirrorMode: TRUE
+
+EOF
+    # database replication
+    echo -n "data "
+    ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+dn: olcOverlay=syncprov,olcDatabase={2}hdb,cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov
+EOF
+    ldapmodify -Y EXTERNAL  -H ldapi:/// <<EOF
+dn: olcDatabase={2}hdb,cn=config
+changetype: modify
+replace: olcSuffix
+olcSuffix: dc=itzgeek,dc=local
+-
+replace: olcRootDN
+olcRootDN: cn=ldapadm,dc=itzgeek,dc=local
+-
+replace: olcRootPW
+olcRootPW: {SSHA}xtbbtC/1pJclCPzo1n3Szac9jqavSphk
+-
+add: olcSyncRepl
+$(
+    for ((i=0; i<${#masters[@]}; ++i)); do
+      printf 'olcSyncRepl: rid=%03d provider=ldap://%s binddn="cn=admin,${BASEDN}"\n' $((i+1)) ${masters[$i]};
+      echo '  credentials=x searchbase="${BASEDN}" type=refreshOnly'
+      echo '  interval=00:00:00:10 retry="5 5 300 5" timeout=1'
+    done
+)
+-
+add: olcDbIndex
+olcDbIndex: entryUUID  eq
+-
+add: olcDbIndex
+olcDbIndex: entryCSN  eq
+-
+add: olcMirrorMode
+olcMirrorMode: TRUE
+EOF
+    ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+dn: olcDatabase={1}monitor,cn=config
+changetype: modify
+replace: olcAccess
+olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external, cn=auth" read by dn.base="cn=admin,${BASEDN}" read by * none
+EOF
+    echo "done."
+}
+
 DATE=$(date '+%Y%m%d%H%m')
 
 echo "Configuration ..."
@@ -202,6 +308,14 @@ if test -z "${PASSWORD}"; then
 fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
+
+if test -n "$MULTI_MASTER_REPLICATION"; then
+    if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
+        echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
+        exit 1
+    fi
+    multimaster
+fi
 
 restore || backup
 startbg

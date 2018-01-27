@@ -2,10 +2,12 @@ FROM mwaeckerlin/ubuntu-base
 MAINTAINER mwaeckerlin
 ENV TERM xterm
 
-ENV DOMAIN        ""
-ENV ORGANIZATION  ""
-ENV PASSWORD      ""
-ENV DEBUG         1
+ENV DOMAIN                   ""
+ENV ORGANIZATION             ""
+ENV PASSWORD                 ""
+ENV DEBUG                    1
+ENV MULTI_MASTER_REPLICATION ""
+ENV SERVER_NAME              ""
 
 RUN echo "slapd slapd/password1 password test" | debconf-set-selections
 RUN echo "slapd slapd/password2 password test" | debconf-set-selections

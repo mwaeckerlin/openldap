@@ -1,21 +1,28 @@
-# OpenLDAP Server
+OpenLDAP Server
+===============
 
 See also: https://marc.wäckerlin.ch/computer/setup-openldap-server-in-docker
 
-## Configuration
+
+Configuration
+-------------
 
 OpenLDAP serve in Ubuntu default configuration. Initial setup is configured though environment variables.
 
 Environment Variables:
-- DOMAIN (mandatory) 
+- `DOMAIN` (mandatory) 
     Your domain name, e.g. `example.org`. The distinguish name is created from this domain, e.g. as `cn=example,cn=org`.
-- ORGANIZATION (mandatory) 
+- `ORGANIZATION` (mandatory) 
     The name of your organization, e.g. `Example Organization`.
-- PASSWORD (optional) 
+- `PASSWORD` (optional) 
     Administrator password, account is derieved from DOMAIN, e.g. `cn=admin,dc=example,dc=org`.
     If not given, a password is generated and written to docker logs.
-- DEBUG (optional) 
+- `DEBUG` (optional) 
     Specifies the debug level, defaults to 0 (no debug output)
+- `MULTI_MASTER_REPLICATION` (optional) 
+    List of master host names for multi master replication (see below).
+- `SERVER_NAME` (optional) 
+    This server's name, must be one of the names in `MULTI_MASTER_REPLICATION`.
 
 Ports:
 - 389 (LDAP and LDAP+startTLS)
@@ -27,7 +34,9 @@ Volumes:
 - /etc/ldap
 - /var/lib/ldap
 
-## Example
+
+Example
+-------
 
 Start your openLDAP server:
 ```
@@ -57,3 +66,26 @@ To restore the backup file, copy a file named `config.ldif` that contains the co
 After successful restore, the file will be moved to volume `/var/backups/<date>-restored-<config|data>.ldif`.
 
 At every restart, a backup is generated, i.e. before restore in `/var/backups/<date>-startup-<config|data>.ldif`.
+
+Multi Master Replication
+------------------------
+
+To enable multi master replication, just pass a space separated list of all master's host names (including the own host name) in environment variable `MULTI_MASTER_REPLICATION` and set this server's name in variable `SERVER_NAME`. `SERVER_NAME` must be one of the names in `MULTI_MASTER_REPLICATION`. Specify the same `PASSWORD` for all masters:
+
+```
+docker run -it --rm --name master1 \
+           -e PASSWORD=1234567890 \
+           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
+           -e SERVER_NAME=master1 \
+           mwaeckerlin/openldap
+docker run -it --rm --name master2 \
+           -e PASSWORD=1234567890 \
+           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
+           -e SERVER_NAME=master2 \
+           mwaeckerlin/openldap
+docker run -it --rm --name master3 \
+           -e PASSWORD=1234567890 \
+           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
+           -e SERVER_NAME=master3 \
+           mwaeckerlin/openldap
+```
