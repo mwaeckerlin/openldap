@@ -309,6 +309,9 @@ fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
+restore || backup
+startbg
+
 if test -n "$MULTI_MASTER_REPLICATION"; then
     if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
         echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
@@ -317,8 +320,6 @@ if test -n "$MULTI_MASTER_REPLICATION"; then
     multimaster
 fi
 
-restore || backup
-startbg
 setConfigPWD
 reconfigure
 checkConfig
