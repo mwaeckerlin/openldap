@@ -180,6 +180,13 @@ function restore() {
 }
 
 function multimaster() {
+    if test -z "$MULTI_MASTER_REPLICATION"; then
+        return
+    fi
+    if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
+        echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
+        exit 1
+    fi
     echo -n "  multimaster ... "
     # load module
     echo -n "module "
@@ -311,19 +318,11 @@ export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 restore || backup
 startbg
-
-if test -n "$MULTI_MASTER_REPLICATION"; then
-    if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
-        echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
-        exit 1
-    fi
-    multimaster
-fi
-
 setConfigPWD
 reconfigure
 checkConfig
 checkCerts
+multimaster
 stopbg
 echo "Configuration done."
 echo "**** Administrator Password: ${PASSWORD}"
