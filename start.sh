@@ -316,14 +316,23 @@ fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
+echo "==================== restore or backup ===================="
 restore || backup
+echo "==================== startbg ===================="
 startbg
+echo "==================== setConfigPWD ===================="
 setConfigPWD
+echo "==================== reconfigure ===================="
 reconfigure
+echo "==================== checkConfig ===================="
 checkConfig
+echo "==================== checkCerts ===================="
 checkCerts
+echo "==================== multimaster ===================="
 multimaster
+echo "==================== stopbg ===================="
 stopbg
+echo "==================== ********** ===================="
 echo "Configuration done."
 echo "**** Administrator Password: ${PASSWORD}"
 echo "starting slapd ..."
