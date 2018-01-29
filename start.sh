@@ -5,7 +5,7 @@ function restoreconfig() {
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
-                echo "$f "
+                echo -n "$f "
                 cp -a $f.original/* $f/
                 chown -R openldap.openldap $f
             fi
