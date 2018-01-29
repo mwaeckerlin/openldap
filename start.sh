@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+stdbuf -i0 -o0 -e0 echo
+
 function restoreconfig() {
     local restored=0
     echo -n  "  --> restoring configuration ... "
