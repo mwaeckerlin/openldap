@@ -29,7 +29,7 @@ function error() {
 }
 
 function section() {
-    echo -n "${bold}${white}$*${normal}"
+    echo "${bold}${white}$*${normal}"
 }
 
 function log() {
