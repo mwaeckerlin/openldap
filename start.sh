@@ -1,14 +1,64 @@
 #!/bin/bash -e
 
+if test -t 1; then
+
+    # see if it supports colors...
+    ncolors=$(tput colors)
+
+    if test -n "$ncolors" && test $ncolors -ge 8; then
+        bold="$(tput bold)"
+        underline="$(tput smul)"
+        standout="$(tput smso)"
+        normal="$(tput sgr0)"
+        black="$(tput setaf 0)"
+        red="$(tput setaf 1)"
+        green="$(tput setaf 2)"
+        yellow="$(tput setaf 3)"
+        blue="$(tput setaf 4)"
+        magenta="$(tput setaf 5)"
+        cyan="$(tput setaf 6)"
+        white="$(tput setaf 7)"
+    fi
+fi
+
 stdbuf -i0 -o0 -e0 echo
+
+function error() {
+    echo "${bold}${red}$*${normal}" 1>&2
+    exit 1
+}
+
+function section() {
+    echo -n "${bold}${white}$*${normal}"
+}
+
+function log() {
+    echo -n "${bold}${yellow}$*${normal}"
+}
+
+function logdone() {
+    if test -z "$*"; then
+        echo "${bold}${green}done.${normal}"
+    else
+        echo "${bold}${green}$*${normal}"
+    fi
+}
+
+function logerror() {
+    if test -z "$*"; then
+        echo "${bold}${red}done.${normal}"
+    else
+        echo "${bold}${red}$*${normal}"
+    fi
+}
 
 function restoreconfig() {
     local restored=0
-    echo -n  "  --> restoring configuration ... "
+    log  "  --> restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
-                echo -n "$f "
+                log "$f "
                 cp -a $f.original/* $f/
                 chown -R openldap.openldap $f
                 restored=1
@@ -16,7 +66,7 @@ function restoreconfig() {
             rm -rf $f.original
         fi
     done
-    echo -n "debian-script "
+    log "debian-script "
 debconf-set-selections <<EOF
 slapd slapd/internal/generated_adminpw password ${PASSWORD}
 slapd slapd/internal/adminpw password ${PASSWORD}
@@ -29,7 +79,7 @@ slapd slapd/allow_ldap_v2 boolean false
 slapd slapd/domain string ${DOMAIN}
 EOF
 dpkg-reconfigure -f noninteractive slapd > /dev/null
-    echo "done."
+    logdone
     test $restored -eq 1
 }
 
@@ -48,7 +98,7 @@ function start() {
 }
 
 function startbg() {
-    echo -n "  --> starting openldap in background ... "
+    log "  --> starting openldap in background ... "
     fixperm
     /usr/sbin/slapd -d 0 \
     -h "ldap:/// ldapi:///" \
@@ -58,37 +108,33 @@ function startbg() {
     while ! pgrep slapd > /dev/null; do sleep 1; done
     sleep 5;
     if test "$PID" != "$(pgrep slapd)"; then
-        echo "ERROR: failed to start openldap server" 1>&2
-        exit 1
+        error "ERROR: failed to start openldap server"
     fi
-    echo "done."
+    logdone
 }
 
 function stopbg() {
-    echo -n "  --> stopping openldap running in background ... "
+    log "  --> stopping openldap running in background ... "
     kill $PID
     while pgrep slapd > /dev/null; do sleep 1; done
-    echo "done."
+    logdone
 }
 
 function checkConfig() {
-    echo -n "  --> checking configuration ... "
+    log "  --> checking configuration ... "
     if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn 2>/dev/null >/dev/null; then
-        echo "error."
-        echo "Error: cn=config not found" 1>&2
-        exit 1
+        error "ERROR: cn=config not found"
     fi
-    echo "ready."
+    logdone
 }
 
 function checkCerts() {
     local certfile=
     local keyfile=
-    echo -n "  --> check certificates ... "
+    log "  --> check certificates ... "
     if test -e /ssl/live/${DOMAIN}/chain.pem \
-         -a -e /ssl/live/${DOMAIN}/privkey.pem \
-         -a -e /ssl/live/${DOMAIN}/cert.pem; then
-        echo "found"
+            -a -e /ssl/live/${DOMAIN}/privkey.pem \
+            -a -e /ssl/live/${DOMAIN}/cert.pem; then
         ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=config
 replace: olcTLSCACertificateFile
@@ -100,14 +146,16 @@ olcTLSCertificateKeyFile: /ssl/live/${DOMAIN}/privkey.pem
 replace: olcTLSCertificateFile
 olcTLSCertificateFile: /ssl/live/${DOMAIN}/cert.pem
 EOF
+        logdone "configured."
     else
-        echo "no"
-        echo "   to activate TLS/SSL, please mount /etc/letsencrypt to /ssl"
+        logerror "not configured."
+        section "   to activate TLS/SSL, please mount /etc/letsencrypt to /ssl"
+    
     fi
 }
 
 function setConfigPWD() {
-    echo -n "  --> set cn=config password ... "
+    log "  --> set cn=config password ... "
     ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
 dn: olcDatabase={1}hdb,cn=config
 changetype: modify
@@ -120,11 +168,11 @@ changetype: modify
 replace: olcRootPW
 olcRootPW: ${PASSWD}
 EOF
-    echo "done."
+    logdone
 }
 
 function disallowAnonymousBind() {
-    echo -n "  --> disallow anonymous bind ... "
+    log "  --> disallow anonymous bind ... "
     ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=config
 changetype: modify
@@ -136,18 +184,18 @@ changetype: modify
 add: olcRequires
 olcRequires: authc
 EOF
-    echo "done."
+    logdone
 }
 
 function reconfigure() {
-    echo -n "  --> reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
+    log "  --> reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
     if ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null; then
-        echo "done."
+        logdone
     else
         res=$?
         case "$res" in
-            (68) echo "already configured";;
-            (*) echo "failed: $res.";;
+            (68) logdone "already configured";;
+            (*) logerror "failed: $res.";;
         esac
     fi <<EOF
 dn: ${BASEDN}
@@ -167,17 +215,17 @@ EOF
 }
 
 function backup() {
-    echo -n "  --> backup ... "
-    slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldif && echo -n "${DATE}-startup-config.ldif "
-    slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldif && echo -n "${DATE}-startup-data.ldif "
-    echo "done."
+    log "  --> backup ... "
+    slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldif && log "${DATE}-startup-config.ldif "
+    slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldif && log "${DATE}-startup-data.ldif "
+    logdone
 }
 
 function recover() {
-    echo -n "  --> recover database... "
+    log "  --> recover database... "
     cd /var/lib/ldap
     db_recover -v
-    echo "done."
+    logdone
 }
 
 function restore() {
@@ -185,16 +233,16 @@ function restore() {
         return 1
     else
         rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-        echo -n "  --> restoring ... "
+        log "  --> restoring ... "
         if test -e /var/restore/config.ldif; then
-            echo -n "config "
+            log "config "
             slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
             mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
         else
             slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
         fi
         if test -e /var/restore/data.ldif; then
-            echo -n "data "
+            log "data "
             slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
             mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
         else
@@ -202,7 +250,7 @@ function restore() {
         fi
         chown -R openldap.openldap /etc/ldap/slapd.d
     fi
-    echo "done."
+    logdone
     return 0
 }
 
@@ -211,12 +259,11 @@ function multimaster() {
         return
     fi
     if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
-        echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
-        exit 1
+        error "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION"
     fi
-    echo -n "  --> multimaster ... "
+    log "  --> multimaster ... "
     # load module
-    echo -n "module "
+    log "module "
     ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
 dn: cn=module,cn=config
 objectClass: olcModuleList
@@ -234,13 +281,15 @@ EOF
         fi
     done
     test -n "$serverid"
-    echo -n "config for ${SERVER_NAME} as $serverid "
+    log "config for ${SERVER_NAME} as $serverid "
+    log "first "
     ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
 dn: cn=config
 changetype: modify
 add: olcServerID
 olcServerID: ${serverid}
 EOF
+    log "second "
     ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
 dn: cn=config
 changetype: modify
@@ -272,7 +321,8 @@ olcMirrorMode: TRUE
 
 EOF
     # database replication
-    echo -n "data "
+    log "data "
+    log "first "
     ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
 dn: olcOverlay=syncprov,olcDatabase={1}hdb,cn=config
 changetype: add
@@ -280,6 +330,7 @@ objectClass: olcOverlayConfig
 objectClass: olcSyncProvConfig
 olcOverlay: syncprov
 EOF
+    log "second "
     ldapmodify -Y EXTERNAL  -H ldapi:/// <<EOF
 dn: olcDatabase={1}hdb,cn=config
 changetype: modify
@@ -310,26 +361,25 @@ olcDbIndex: entryCSN  eq
 add: olcMirrorMode
 olcMirrorMode: TRUE
 EOF
+    log "access "
     ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
 dn: olcDatabase={1}monitor,cn=config
 changetype: modify
 replace: olcAccess
 olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external, cn=auth" read by dn.base="cn=admin,${BASEDN}" read by * none
 EOF
-    echo "done."
+    logdone
 }
 
 DATE=$(date '+%Y%m%d%H%m')
 
-echo "Configuration ..."
+section "Configuration ..."
 
 if test -z "${DOMAIN}"; then
-    echo "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
-    exit 1
+    error "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org"
 fi
 if test -z "${ORGANIZATION}"; then
-    echo "ERROR: Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\"" 1>&2
-    exit 1
+    error "ERROR: Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\""
 fi
 if test -z "${PASSWORD}"; then
     if test -e /etc/ldap/password; then
@@ -342,29 +392,29 @@ fi
 export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
-echo "==================== restore or backup ===================="
+section "==================== restore or backup ===================="
 if restoreconfig; then
     restore || true
 else
     restore || (recover && backup)
 fi
-echo "==================== startbg ===================="
+section "==================== startbg ===================="
 startbg
-echo "==================== setConfigPWD ===================="
+section "==================== setConfigPWD ===================="
 setConfigPWD
-echo "==================== reconfigure ===================="
+section "==================== reconfigure ===================="
 reconfigure
-echo "==================== checkConfig ===================="
+section "==================== checkConfig ===================="
 checkConfig
-echo "==================== checkCerts ===================="
+section "==================== checkCerts ===================="
 checkCerts
-echo "==================== multimaster ===================="
+section "==================== multimaster ===================="
 multimaster
-echo "==================== stopbg ===================="
+section "==================== stopbg ===================="
 stopbg
-echo "==================== ********** ===================="
-echo "Configuration done."
-echo "**** Administrator Password: ${PASSWORD}"
-echo "starting slapd ..."
+section "==================== ********** ===================="
+section "Configuration done."
+section "**** Administrator Password: ${PASSWORD}"
+section "starting slapd ..."
 start
-echo "Error: slapd terminated"
+error "ERROR: slapd terminated"
