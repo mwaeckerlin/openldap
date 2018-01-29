@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 function restoreconfig() {
+    local restored=0
     echo -n  "  restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
@@ -8,11 +9,26 @@ function restoreconfig() {
                 echo -n "$f "
                 cp -a $f.original/* $f/
                 chown -R openldap.openldap $f
+                restored=1
             fi
             rm -rf $f.original
         fi
     done
+    echo -n "debian-script "
+debconf-set-selections <<EOF
+slapd slapd/internal/generated_adminpw password ${PASSWORD}
+slapd slapd/internal/adminpw password ${PASSWORD}
+slapd slapd/password1 password ${PASSWORD}
+slapd slapd/password2 password ${PASSWORD}
+slapd shared/organization string ${ORGANIZATION}
+slapd slapd/purge_database boolean false
+slapd slapd/backend select HDB
+slapd slapd/allow_ldap_v2 boolean false
+slapd slapd/domain string ${DOMAIN}
+EOF
+dpkg-reconfigure -f noninteractive slapd > /dev/null
     echo "done."
+    test $restored -eq 1
 }
 
 function fixperm() {
@@ -151,11 +167,15 @@ function backup() {
     echo "done."
 }
 
+function recover() {
+    echo -n "  recover database... "
+    cd /var/lib/ldap
+    db_recover -v
+    echo "done."
+}
+
 function restore() {
     if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
-        echo -n "  recover database... "
-        cd /var/lib/ldap
-        db_recover -v
         return 1
     else
         rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
@@ -296,7 +316,6 @@ EOF
 DATE=$(date '+%Y%m%d%H%m')
 
 echo "Configuration ..."
-restoreconfig
 
 if test -z "${DOMAIN}"; then
     echo "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org" 1>&2
@@ -318,7 +337,11 @@ export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 echo "==================== restore or backup ===================="
-restore || backup
+if restoreconfig; then
+    restore || true
+else
+    restore || (recover && backup)
+fi
 echo "==================== startbg ===================="
 startbg
 echo "==================== setConfigPWD ===================="
