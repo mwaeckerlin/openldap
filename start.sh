@@ -2,7 +2,7 @@
 
 function restoreconfig() {
     local restored=0
-    echo -n  "  restoring configuration ... "
+    echo -n  "  --> restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
         if [ ! -z "$(ls -A $f.original)" ]; then
             if [ -z "$(ls -A $f)" ]; then
@@ -46,27 +46,31 @@ function start() {
 }
 
 function startbg() {
-    echo -n "  starting openldap in background ... "
+    echo -n "  --> starting openldap in background ... "
     fixperm
     /usr/sbin/slapd -d 0 \
     -h "ldap:/// ldapi:///" \
     -g openldap -u openldap \
     -F /etc/ldap/slapd.d &
     PID=$!
-    sleep 5
     while ! pgrep slapd > /dev/null; do sleep 1; done
+    sleep 5;
+    if test "$PID" != "$(pgrep slapd)"; then
+        echo "ERROR: failed to start openldap server" 1>&2
+        exit 1
+    fi
     echo "done."
 }
 
 function stopbg() {
-    echo -n "  stopping openldap running in background ... "
+    echo -n "  --> stopping openldap running in background ... "
     kill $PID
     while pgrep slapd > /dev/null; do sleep 1; done
     echo "done."
 }
 
 function checkConfig() {
-    echo -n "  checking configuration ... "
+    echo -n "  --> checking configuration ... "
     if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn 2>/dev/null >/dev/null; then
         echo "error."
         echo "Error: cn=config not found" 1>&2
@@ -78,7 +82,7 @@ function checkConfig() {
 function checkCerts() {
     local certfile=
     local keyfile=
-    echo -n "  check certificates ... "
+    echo -n "  --> check certificates ... "
     if test -e /ssl/live/${DOMAIN}/chain.pem \
          -a -e /ssl/live/${DOMAIN}/privkey.pem \
          -a -e /ssl/live/${DOMAIN}/cert.pem; then
@@ -101,7 +105,7 @@ EOF
 }
 
 function setConfigPWD() {
-    echo -n "  set cn=config password ... "
+    echo -n "  --> set cn=config password ... "
     ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
 dn: olcDatabase={1}hdb,cn=config
 changetype: modify
@@ -118,7 +122,7 @@ EOF
 }
 
 function disallowAnonymousBind() {
-    echo -n "  disallow anonymous bind ... "
+    echo -n "  --> disallow anonymous bind ... "
     ldapmodify -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=config
 changetype: modify
@@ -134,7 +138,7 @@ EOF
 }
 
 function reconfigure() {
-    echo -n "  reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
+    echo -n "  --> reconfigure: ${ORGANIZATION} on ${DOMAIN} ... "
     if ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null; then
         echo "done."
     else
@@ -161,14 +165,14 @@ EOF
 }
 
 function backup() {
-    echo -n "  backup ... "
+    echo -n "  --> backup ... "
     slapcat -n 0 -l /var/backups/${DATE}-startup-config.ldif && echo -n "${DATE}-startup-config.ldif "
     slapcat -n 1 -l /var/backups/${DATE}-startup-data.ldif && echo -n "${DATE}-startup-data.ldif "
     echo "done."
 }
 
 function recover() {
-    echo -n "  recover database... "
+    echo -n "  --> recover database... "
     cd /var/lib/ldap
     db_recover -v
     echo "done."
@@ -179,7 +183,7 @@ function restore() {
         return 1
     else
         rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
-        echo -n "  restoring ... "
+        echo -n "  --> restoring ... "
         if test -e /var/restore/config.ldif; then
             echo -n "config "
             slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
@@ -208,7 +212,7 @@ function multimaster() {
         echo "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION" 1>&2
         exit 1
     fi
-    echo -n "  multimaster ... "
+    echo -n "  --> multimaster ... "
     # load module
     echo -n "module "
     ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
