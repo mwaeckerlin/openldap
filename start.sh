@@ -105,8 +105,13 @@ function startbg() {
     -g openldap -u openldap \
     -F /etc/ldap/slapd.d &
     PID=$!
-    while ! pgrep slapd > /dev/null; do sleep 1; done
-    sleep 5;
+    for ((i=0; i<10; ++i)); do
+        if pgrep slapd > /dev/null; then
+            break
+        fi
+        log ". "
+        sleep 1;
+    done
     if test "$PID" != "$(pgrep slapd)"; then
         error "ERROR: failed to start openldap server"
     fi
