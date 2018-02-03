@@ -67,18 +67,18 @@ function restoreconfig() {
         fi
     done
     log "debian-script "
-debconf-set-selections <<EOF
-slapd slapd/internal/generated_adminpw password ${PASSWORD}
-slapd slapd/internal/adminpw password ${PASSWORD}
-slapd slapd/password1 password ${PASSWORD}
-slapd slapd/password2 password ${PASSWORD}
-slapd shared/organization string ${ORGANIZATION}
-slapd slapd/purge_database boolean false
-slapd slapd/backend select HDB
-slapd slapd/allow_ldap_v2 boolean false
-slapd slapd/domain string ${DOMAIN}
-EOF
-dpkg-reconfigure -f noninteractive slapd > /dev/null
+#debconf-set-selections <<EOF
+#slapd slapd/internal/generated_adminpw password ${PASSWORD}
+#slapd slapd/internal/adminpw password ${PASSWORD}
+#slapd slapd/password1 password ${PASSWORD}
+#slapd slapd/password2 password ${PASSWORD}
+#slapd shared/organization string ${ORGANIZATION}
+#slapd slapd/purge_database boolean false
+#slapd slapd/backend select HDB
+#slapd slapd/allow_ldap_v2 boolean false
+#slapd slapd/domain string ${DOMAIN}
+#EOF
+#dpkg-reconfigure -f noninteractive slapd > /dev/null
     logdone
     test $restored -eq 1
 }
