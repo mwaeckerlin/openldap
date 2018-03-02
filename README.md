@@ -61,7 +61,7 @@ You can create backups easily, to generate config in `config.ldif` and data in `
     slapcat -n 0 -l config.ldif
     slapcat -n 1 -l data.ldif
 
-To restore the backup file, copy a file named `config.ldif` that contains the configuration and a file named `data.ldif` in the volume `/var/restore`, then restart the container.
+To restore the backup file, copy a file named to match `*config.ldif` that contains the configuration and a file named to match `*data.ldif` in the volume `/var/restore`, then restart the container.
 
 After successful restore, the file will be moved to volume `/var/backups/<date>-restored-<config|data>.ldif`.
 

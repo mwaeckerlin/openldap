@@ -66,19 +66,6 @@ function restoreconfig() {
             rm -rf $f.original
         fi
     done
-    log "debian-script "
-#debconf-set-selections <<EOF
-#slapd slapd/internal/generated_adminpw password ${PASSWORD}
-#slapd slapd/internal/adminpw password ${PASSWORD}
-#slapd slapd/password1 password ${PASSWORD}
-#slapd slapd/password2 password ${PASSWORD}
-#slapd shared/organization string ${ORGANIZATION}
-#slapd slapd/purge_database boolean false
-#slapd slapd/backend select HDB
-#slapd slapd/allow_ldap_v2 boolean false
-#slapd slapd/domain string ${DOMAIN}
-#EOF
-#dpkg-reconfigure -f noninteractive slapd > /dev/null
     logdone
     test $restored -eq 1
 }
@@ -130,8 +117,25 @@ function stopbg() {
 function checkConfig() {
     log "  --> checking configuration ... "
     if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn 2>/dev/null >/dev/null; then
-        error "ERROR: cn=config not found"
+        error "ERROR: failed tocreate config"
     fi
+    logdone
+}
+
+function debian-script() {
+    log "debian-script "
+    debconf-set-selections <<EOF
+slapd slapd/internal/generated_adminpw password ${PASSWORD}
+slapd slapd/internal/adminpw password ${PASSWORD}
+slapd slapd/password1 password ${PASSWORD}
+slapd slapd/password2 password ${PASSWORD}
+slapd shared/organization string ${ORGANIZATION}
+slapd slapd/purge_database boolean false
+slapd slapd/backend select HDB
+slapd slapd/allow_ldap_v2 boolean false
+slapd slapd/domain string ${DOMAIN}
+EOF
+    dpkg-reconfigure -f noninteractive slapd 2> /dev/null > /dev/null
     logdone
 }
 
@@ -236,25 +240,17 @@ function recover() {
 }
 
 function restore() {
-    if ! test -e /var/restore/config.ldif -o -e /var/restore/data.ldif; then
+    if ! test -e /var/restore/*config.ldif -a -e /var/restore/*data.ldif; then
         return 1
     else
         rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
         log "  --> restoring ... "
-        if test -e /var/restore/config.ldif; then
-            log "config "
-            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/config.ldif
-            mv /var/restore/config.ldif /var/backups/${DATE}-restored-config.ldif
-        else
-            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-config.ldif
-        fi
-        if test -e /var/restore/data.ldif; then
-            log "data "
-            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/data.ldif
-            mv /var/restore/data.ldif /var/backups/${DATE}-restored-data.ldif
-        else
-            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/backups/${DATE}-startup-data.ldif
-        fi
+        log "config "
+        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/*config.ldif
+        mv /var/restore/*config.ldif /var/backups/${DATE}-restored-config.ldif
+        log "data "
+        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/*data.ldif
+        mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
         chown -R openldap.openldap /etc/ldap/slapd.d
     fi
     logdone
@@ -401,18 +397,19 @@ export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 section "==================== restore or backup ===================="
 if restoreconfig; then
+    debian-script
     restore || true
 else
     restore || (recover && backup)
 fi
 section "==================== startbg ===================="
 startbg
-section "==================== setConfigPWD ===================="
-setConfigPWD
 section "==================== reconfigure ===================="
 reconfigure
 section "==================== checkConfig ===================="
 checkConfig
+section "==================== setConfigPWD ===================="
+setConfigPWD
 section "==================== checkCerts ===================="
 checkCerts
 section "==================== multimaster ===================="
