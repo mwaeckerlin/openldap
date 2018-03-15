@@ -1,4 +1,5 @@
 #!/bin/bash -e
+rm /running || true
 
 if test -t 1; then
 
@@ -117,7 +118,7 @@ function stopbg() {
 function checkConfig() {
     log "  --> checking configuration ... "
     if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn 2>/dev/null >/dev/null; then
-        error "ERROR: failed tocreate config"
+        error "ERROR: failed to create config"
     fi
     logdone
 }
@@ -240,20 +241,25 @@ function recover() {
 }
 
 function restore() {
-    if ! test -e /var/restore/*config.ldif -a -e /var/restore/*data.ldif; then
+    if ! test -e /var/restore/*config.ldif -o -e /var/restore/*data.ldif; then
         return 1
     else
-        rm -rf /etc/ldap/slapd.d/* /var/lib/ldap/*
         log "  --> restoring ... "
-        log "config "
-        slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/*config.ldif
-        mv /var/restore/*config.ldif /var/backups/${DATE}-restored-config.ldif
-        log "data "
-        slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/*data.ldif
-        mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
-        chown -R openldap.openldap /etc/ldap/slapd.d
+        if test -e /var/restore/*config.ldif; then
+            log "config "
+            rm -rf /etc/ldap/slapd.d/*
+            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/*config.ldif ${MULTI_MASTER_REPLICATION+-w}
+            chown -R openldap.openldap /etc/ldap/slapd.d
+            mv /var/restore/*config.ldif /var/backups/${DATE}-restored-config.ldif
+        fi
+        if test -e /var/restore/*data.ldif; then
+            log "data "
+            rm -rf /var/lib/ldap/*
+            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/*data.ldif ${MULTI_MASTER_REPLICATION+-w}
+            mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
+        fi
+        logdone
     fi
-    logdone
     return 0
 }
 
@@ -267,7 +273,7 @@ function multimaster() {
     log "  --> multimaster ... "
     # load module
     log "module "
-    ldapadd -Y EXTERNAL -H ldapi:/// <<EOF
+    ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
 dn: cn=module,cn=config
 objectClass: olcModuleList
 cn: module
@@ -374,6 +380,50 @@ EOF
     logdone
 }
 
+function memberof() {
+    log "  --> memberof ... "
+    if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b olcOverlay={0}memberof,olcDatabase={1}hdb,cn=config 2> /dev/null > /dev/null; then
+        log "module "
+        ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
+dn: cn=module,cn=config
+cn: module
+objectClass: olcModuleList
+olcModuleLoad: memberof
+olcModulePath: /usr/lib/ldap
+
+dn: olcOverlay={0}memberof,olcDatabase={1}hdb,cn=config
+objectClass: olcConfig
+objectClass: olcMemberOf
+objectClass: olcOverlayConfig
+objectClass: top
+olcOverlay: memberof
+olcMemberOfDangling: ignore
+olcMemberOfRefInt: TRUE
+olcMemberOfGroupOC: groupOfNames
+olcMemberOfMemberAD: member
+olcMemberOfMemberOfAD: memberOf
+EOF
+        log "refint "
+        ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+dn: cn=module{1},cn=config
+add: olcmoduleload
+olcmoduleload: refint
+EOF
+        ldapadd -c -Y external -H ldapi:/// > /dev/null 2> /dev/null <<EOF
+dn: olcOverlay={1}refint,olcDatabase={1}hdb,cn=config
+objectClass: olcConfig
+objectClass: olcOverlayConfig
+objectClass: olcRefintConfig
+objectClass: top
+olcOverlay: {1}refint
+olcRefintAttribute: memberof member manager owner
+EOF
+        logdone
+    else
+        logdone "already configured"
+    fi
+}
+
 DATE=$(date '+%Y%m%d%H%m')
 
 section "Configuration ..."
@@ -410,6 +460,8 @@ section "==================== checkConfig ===================="
 checkConfig
 section "==================== setConfigPWD ===================="
 setConfigPWD
+section "==================== memberof ===================="
+memberof
 section "==================== checkCerts ===================="
 checkCerts
 section "==================== multimaster ===================="
@@ -420,5 +472,6 @@ section "==================== ********** ===================="
 section "Configuration done."
 section "**** Administrator Password: ${PASSWORD}"
 section "starting slapd ..."
+touch /running
 start
 error "ERROR: slapd terminated"
