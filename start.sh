@@ -55,9 +55,15 @@ function logerror() {
 }
 
 function restoreconfig() {
+    local restored=0
     log  "  --> restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
-        chown -R openldap.openldap $f
+        if [ ! -z "$(ls -A ${f}.original)" ]; then
+            log "$f "
+            rsync -a --delete --exclude password --exclude slapd.d ${f}.original/ $f/
+            chown -R openldap.openldap $f
+            rm -rf ${f}.original
+        fi
     done
     logdone
 }
@@ -437,9 +443,9 @@ export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 section "==================== restore or backup ===================="
-debian-script
 restoreconfig
-restore || (recover && backup)
+debian-script
+restore || (recover; backup)
 section "==================== startbg ===================="
 startbg
 section "==================== reconfigure ===================="
