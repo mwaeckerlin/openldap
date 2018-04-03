@@ -10,7 +10,7 @@ ENV SERVER_NAME              ""
 
 RUN echo "slapd slapd/password1 password test" | debconf-set-selections
 RUN echo "slapd slapd/password2 password test" | debconf-set-selections
-RUN apt-get install -y slapd ldap-utils debconf-utils pwgen db-util
+RUN apt-get install -y slapd ldap-utils debconf-utils pwgen db-util rsync
 RUN usermod -a -G ssl-cert openldap
 RUN mv /etc/ldap /etc/ldap.original
 RUN mv /var/lib/ldap /var/lib/ldap.original
