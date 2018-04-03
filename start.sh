@@ -25,7 +25,8 @@ fi
 stdbuf -i0 -o0 -e0 echo
 
 function error() {
-    echo "${bold}${red}$*${normal}" 1>&2
+    echo "${bold}${red}error${normal}"
+    echo "${bold}${red}ERROR: $*${normal}" 1>&2
     exit 1
 }
 
@@ -47,28 +48,18 @@ function logdone() {
 
 function logerror() {
     if test -z "$*"; then
-        echo "${bold}${red}done.${normal}"
+        echo "${bold}${red}error.${normal}"
     else
         echo "${bold}${red}$*${normal}"
     fi
 }
 
 function restoreconfig() {
-    local restored=0
     log  "  --> restoring configuration ... "
     for f in /etc/ldap /var/lib/ldap; do
-        if [ ! -z "$(ls -A $f.original)" ]; then
-            if [ -z "$(ls -A $f)" ]; then
-                log "$f "
-                cp -a $f.original/* $f/
-                chown -R openldap.openldap $f
-                restored=1
-            fi
-            rm -rf $f.original
-        fi
+        chown -R openldap.openldap $f
     done
     logdone
-    test $restored -eq 1
 }
 
 function fixperm() {
@@ -103,7 +94,7 @@ function startbg() {
     done
     sleep 5
     if test "$PID" != "$(pgrep slapd)"; then
-        error "ERROR: failed to start openldap server"
+        error "failed to start openldap server"
     fi
     logdone
 }
@@ -118,7 +109,7 @@ function stopbg() {
 function checkConfig() {
     log "  --> checking configuration ... "
     if ! ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn 2>/dev/null >/dev/null; then
-        error "ERROR: failed to create config"
+        error "failed to create config"
     fi
     logdone
 }
@@ -248,14 +239,14 @@ function restore() {
         if test -e /var/restore/*config.ldif; then
             log "config "
             rm -rf /etc/ldap/slapd.d/*
-            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/*config.ldif ${MULTI_MASTER_REPLICATION+-w}
+            slapadd -c -n 0 -F /etc/ldap/slapd.d -l /var/restore/*config.ldif ${MULTI_MASTER_REPLICATION:+-w}
             chown -R openldap.openldap /etc/ldap/slapd.d
             mv /var/restore/*config.ldif /var/backups/${DATE}-restored-config.ldif
         fi
         if test -e /var/restore/*data.ldif; then
             log "data "
             rm -rf /var/lib/ldap/*
-            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/*data.ldif ${MULTI_MASTER_REPLICATION+-w}
+            slapadd -c -n 1 -F /etc/ldap/slapd.d -l /var/restore/*data.ldif ${MULTI_MASTER_REPLICATION:+-w}
             mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
         fi
         logdone
@@ -268,7 +259,7 @@ function multimaster() {
         return
     fi
     if test -z "$SERVER_NAME" || ! [[ " ${MULTI_MASTER_REPLICATION} " =~ " ${SERVER_NAME} " ]];  then
-        error "ERROR: SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION"
+        error "SERVER_NAME must be one of ${MULTI_MASTER_REPLICATION} in MULTI_MASTER_REPLICATION"
     fi
     log "  --> multimaster ... "
     # load module
@@ -429,10 +420,10 @@ DATE=$(date '+%Y%m%d%H%m')
 section "Configuration ..."
 
 if test -z "${DOMAIN}"; then
-    error "ERROR: Specifying a domain is mandatory, use -e DOMAIN=example.org"
+    error "Specifying a domain is mandatory, use -e DOMAIN=example.org"
 fi
 if test -z "${ORGANIZATION}"; then
-    error "ERROR: Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\""
+    error "Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\""
 fi
 if test -z "${PASSWORD}"; then
     if test -e /etc/ldap/password; then
@@ -446,12 +437,9 @@ export BASEDN="dc=${DOMAIN//./,dc=}"
 export PASSWD="$(slappasswd -h {SSHA} -s ${PASSWORD})"
 
 section "==================== restore or backup ===================="
-if restoreconfig; then
-    debian-script
-    restore || true
-else
-    restore || (recover && backup)
-fi
+debian-script
+restoreconfig
+restore || (recover && backup)
 section "==================== startbg ===================="
 startbg
 section "==================== reconfigure ===================="
@@ -474,4 +462,4 @@ section "**** Administrator Password: ${PASSWORD}"
 section "starting slapd ..."
 touch /running
 start
-error "ERROR: slapd terminated"
+error "slapd terminated"
