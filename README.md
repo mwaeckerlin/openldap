@@ -7,32 +7,28 @@ See also: https://marc.wäckerlin.ch/computer/setup-openldap-server-in-docker
 Configuration
 -------------
 
-OpenLDAP serve in Ubuntu default configuration. Initial setup is configured though environment variables.
+OpenLDAP server in Ubuntu default configuration. Initial setup is
+configured though environment variables.
 
 Environment Variables:
 - `DOMAIN` (mandatory) 
     Your domain name, e.g. `example.org`. The distinguish name is created from this domain, e.g. as `cn=example,cn=org`.
-- `ORGANIZATION` (mandatory) 
-    The name of your organization, e.g. `Example Organization`.
 - `PASSWORD` (optional) 
     Administrator password, account is derieved from DOMAIN, e.g. `cn=admin,dc=example,dc=org`.
     If not given, a password is generated and written to docker logs.
 - `DEBUG` (optional) 
     Specifies the debug level, defaults to 0 (no debug output)
-- `MULTI_MASTER_REPLICATION` (optional) 
-    List of master host names for multi master replication (see below).
-- `SERVER_NAME` (optional) 
-    This server's name, must be one of the names in `MULTI_MASTER_REPLICATION`.
 
 Ports:
 - 389 (LDAP and LDAP+startTLS)
 - 636 (LDAP+SSL)
 
 Volumes:
-- /certs
-- /var/backups
-- /etc/ldap
-- /var/lib/ldap
+- `/var/lib/ldap` the database
+- `/ssl` mount from let's encrypt configuration `/etc/letsencrypt` to enable tls and ssl
+- `/etc/ldap` config file
+- `/var/backups` backups
+- `/var/restore` copy one backup file here to start restore on next restart
 
 
 Example
@@ -53,39 +49,26 @@ Now you can access your LDAP, e.g. through apache directory studio.
 
 To access `cn=config`, set `cn=config` as root and use the administrator account for binding, here `cn=admin,dc=my-company,dc=com` and password `1234567890`.
 
+
 Restore a Backup
 ----------------
 
-You can create backups easily, to generate config in `config.ldif` and data in `data.ldif`:
+You can create backups easily in `data.ldif`:
 
-    slapcat -n 0 -l config.ldif
-    slapcat -n 1 -l data.ldif
+    slapcat -l data.ldif
 
-To restore the backup file, copy a file named to match `*config.ldif` that contains the configuration and a file named to match `*data.ldif` in the volume `/var/restore`, then restart the container.
+To restore the backup file, copy a file named to match `*data.ldif` in the volume `/var/restore`, then restart the container.
 
-After successful restore, the file will be moved to volume `/var/backups/<date>-restored-<config|data>.ldif`.
+After successful restore, the file will be moved to volume `/var/backups/<date>-restored-data.ldif`.
 
-At every restart, a backup is generated, i.e. before restore in `/var/backups/<date>-startup-<config|data>.ldif`.
+Before every restart, a backup is generated in `/var/backups/<date>-startup-data.ldif`.
 
-Multi Master Replication
-------------------------
 
-To enable multi master replication, just pass a space separated list of all master's host names (including the own host name) in environment variable `MULTI_MASTER_REPLICATION` and set this server's name in variable `SERVER_NAME`. `SERVER_NAME` must be one of the names in `MULTI_MASTER_REPLICATION`. Specify the same `PASSWORD` for all masters:
+Note to Upgrades after 2018-04-13
+---------------------------------
 
-```
-docker run -it --rm --name master1 \
-           -e PASSWORD=1234567890 \
-           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
-           -e SERVER_NAME=master1 \
-           mwaeckerlin/openldap
-docker run -it --rm --name master2 \
-           -e PASSWORD=1234567890 \
-           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
-           -e SERVER_NAME=master2 \
-           mwaeckerlin/openldap
-docker run -it --rm --name master3 \
-           -e PASSWORD=1234567890 \
-           -e MULTI_MASTER_REPLICATION="master1 master2 master3" \
-           -e SERVER_NAME=master3 \
-           mwaeckerlin/openldap
-```
+The base image has been replaced from [ubutnu](https://ubuntu.com) to [alpine](https://alpine-linux.org). This way, the image size has been reduced from ~500MB to ~15MB. But at the same time, some changes were made, i.e.:
+ - configuration is now in a slapd.conf file
+ - database is no more `hdb`, but `mdb`
+
+This means: Your database from previous versions cannot be used anymore. You need to create a backup and restore it after migration.

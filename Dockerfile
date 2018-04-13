@@ -1,27 +1,49 @@
-FROM mwaeckerlin/ubuntu-base
+FROM mwaeckerlin/base
 MAINTAINER mwaeckerlin
-
+ARG backend="mdb"
+ARG overlays=""
 ENV DOMAIN                   ""
-ENV ORGANIZATION             ""
+#ENV ORGANIZATION             ""
 ENV PASSWORD                 ""
 ENV DEBUG                    1
-ENV MULTI_MASTER_REPLICATION ""
+#ENV MULTI_MASTER_REPLICATION ""
 ENV SERVER_NAME              ""
 
-RUN echo "slapd slapd/password1 password test" | debconf-set-selections
-RUN echo "slapd slapd/password2 password test" | debconf-set-selections
-RUN apt-get install -y slapd ldap-utils debconf-utils pwgen db-util rsync
-RUN usermod -a -G ssl-cert openldap
-RUN mv /etc/ldap /etc/ldap.original
-RUN mv /var/lib/ldap /var/lib/ldap.original
-RUN mkdir /etc/ldap /var/lib/ldap
-RUN chown openldap.openldap /etc/ldap /var/lib/ldap
+# available schemas:
+# - collective        Collective attributes (experimental)
+# - corba             Corba Object
+# - core          (1) OpenLDAP "core"
+# - cosine        (2) COSINE Pilot
+# - duaconf           Client Configuration (work in progress)
+# - dyngroup          Dynamic Group (experimental)
+# - inetorgperson (3) InetOrgPerson
+# - java              Java Object
+# - misc              Miscellaneous Schema (experimental)
+# - nadf              North American Directory Forum (obsolete)
+# - nis           (3) Network Information Service (experimental)
+# - openldap          OpenLDAP Project (FYI)
+# - ppolicy           Password Policy Schema (work in progress)
+# - samba         (3) Samba user accounts and group maps
+# (1) allways added
+# (2) required by inetorgperson
+# (3) required by default lam configuration
+ENV SCHEMAS "cosine inetorgperson nis samba"
+
+ENV CONTAINERNAME            "openldap"
+ENV USER                     "ldap"
+ENV GROUP                    "$USER"
+ADD samba.schema /etc/openldap/schema/samba.schema
+RUN apk add --no-cache openldap openldap-clients openldap-back-$backend ${overlays}
+RUN addgroup $USER $SHARED_GROUP_NAME
+RUN mkdir /run/openldap
+RUN chown $USER.$GROUP /run/openldap
+RUN /cleanup.sh
 
 EXPOSE 389
 EXPOSE 636
 
 VOLUME /ssl
-VOLUME /var/backups
 VOLUME /etc/ldap
 VOLUME /var/lib/ldap
+VOLUME /var/backups
 VOLUME /var/restore
