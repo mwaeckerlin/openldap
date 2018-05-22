@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 
 if test -z "${PASSWORD}"; then
     if test -e /etc/ldap/password; then
