@@ -87,7 +87,8 @@ if test -e /var/restore/*data.ldif; then
 fi
 
 # run
-chown -R ${USER}.${GROUP} /var/lib/ldap /etc/ldap
+mkdir -p /var/lib/openldap/run
+chown -R ${USER}.${GROUP} /var/lib/ldap /etc/ldap /var/lib/openldap
 chmod 700 /var/lib/ldap
 /usr/sbin/slapd -u $USER -g $GROUP -d ${DEBUG} -h "ldap:///${SSL_HOSTS}" -f /etc/ldap/slapd.conf
 
