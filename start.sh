@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -ex
 
 function error() {
     echo "ERROR: $*" 1>&2
@@ -40,7 +40,7 @@ s/^\s*access/# &/
 s/# \?\(\s*\(access to \*\|by self write\|by users read\|by anonymous auth\)\)/\1/
 EOF
 sed -f /tmp/update-config.sed /etc/openldap/slapd.conf > /etc/ldap/slapd.conf
-if test "$MEMBEROF" -eq 1; then
+if test "$MEMBEROF" = "1"; then
     cat >> /etc/ldap/slapd.conf <<EOF
 moduleload refint
 overlay refint
