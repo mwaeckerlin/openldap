@@ -10,9 +10,6 @@ DATE=$(date '+%Y%m%d%H%m')
 if test -z "${DOMAIN}"; then
     error "Specifying a domain is mandatory, use -e DOMAIN=example.org"
 fi
-#if test -z "${ORGANIZATION}"; then
-#    error "Specifying an organization is mandatory, use -e ORGANIZATION=\"Example Organization\""
-#fi
 if test -z "${PASSWORD}"; then
     if test -e /etc/ldap/password; then
         export PASSWORD="$(cat /etc/ldap/password)"
@@ -70,7 +67,18 @@ TLSCACertificateFile /ssl/live/${DOMAIN}/chain.pem
 #TLSCACertificatePath /usr/share/ca-certificates/mozilla
 EOF
     SSL_HOSTS=" ldaps:/// ldapi:///"
-else
+elif test -e /ssl/${DOMAIN}-ca.crt \
+        -a -e /ssl/${DOMAIN}.key \
+        -a -e /ssl/${DOMAIN}.pem; then
+    cat >> /etc/ldap/slapd.conf <<EOF
+TLSCipherSuite HIGH:MEDIUM:-SSLv2:-SSLv3
+TLSCertificateFile /ssl/${DOMAIN}.pem
+TLSCertificateKeyFile /ssl/${DOMAIN}.key
+TLSCACertificateFile /ssl/${DOMAIN}-ca.crt
+# apk add ca-certificates +:
+#TLSCACertificatePath /usr/share/ca-certificates/mozilla
+EOF
+    SSL_HOSTS=" ldaps:/// ldapi:///"
     SSL_HOSTS=""
 fi
 

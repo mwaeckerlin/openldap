@@ -2,12 +2,12 @@ FROM mwaeckerlin/base
 MAINTAINER mwaeckerlin
 ARG backend="mdb"
 ARG overlays=""
-ENV DOMAIN                   ""
-#ENV ORGANIZATION             ""
-ENV PASSWORD                 ""
-ENV DEBUG                    1
+ENV DOMAIN                    ""
+ENV PASSWORD                  ""
+ENV DEBUG                     1
+
+#ENV SERVER_NAME              ""
 #ENV MULTI_MASTER_REPLICATION ""
-ENV SERVER_NAME              ""
 
 # available schemas:
 # - collective        Collective attributes (experimental)
@@ -24,6 +24,8 @@ ENV SERVER_NAME              ""
 # - openldap          OpenLDAP Project (FYI)
 # - ppolicy           Password Policy Schema (work in progress)
 # - samba         (3) Samba user accounts and group maps
+# - openssh-lpk       Stores SSH Public Keys
+# - ldapns            LDAP Name Service Additional Schema
 # (1) allways added
 # (2) required by inetorgperson
 # (3) required by default lam configuration
@@ -33,6 +35,8 @@ ENV CONTAINERNAME            "openldap"
 ENV USER                     "ldap"
 ENV GROUP                    "$USER"
 ADD samba.schema /etc/openldap/schema/samba.schema
+ADD openssh-lpk.schema /etc/openldap/schema/openssh-lpk.schema
+ADD ldapns.schema /etc/openldap/schema/ldapns.schema
 RUN apk add --no-cache openldap openldap-clients openldap-back-$backend ${overlays}
 RUN addgroup $USER $SHARED_GROUP_NAME
 RUN mkdir /run/openldap
