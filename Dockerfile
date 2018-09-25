@@ -5,6 +5,7 @@ ARG overlays=""
 ENV DOMAIN                    ""
 ENV PASSWORD                  ""
 ENV DEBUG                     1
+ENV ACCESS RULES              "access to * by self write by users read by anonymous auth"
 
 #ENV SERVER_NAME              ""
 #ENV MULTI_MASTER_REPLICATION ""
