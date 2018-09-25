@@ -54,7 +54,6 @@ memberof-memberof-ad memberOf
 memberof-refint true
 EOF
 fi
-rm /tmp/update-config.sed
 for schema in $SCHEMAS; do
     echo "include /etc/openldap/schema/${schema}.schema" >> /etc/ldap/slapd.conf
 done
