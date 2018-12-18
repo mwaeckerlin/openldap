@@ -84,16 +84,16 @@ EOF
     SSL_HOSTS=""
 fi
 
-# backup status quo
-if test -n "$(ls -A /var/lib/ldap)"; then
-    slapcat -f /etc/ldap/slapd.conf > /var/backups/${DATE}-startup-data.ldif
-fi
-
 # restore if required
 if test -e /var/restore/*data.ldif; then
     rm -r /var/lib/ldap/* || true
     slapadd -f /etc/ldap/slapd.conf -l /var/restore/*data.ldif 2> /dev/null
     mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
+else
+    # backup status quo
+    if test -n "$(ls -A /var/lib/ldap)"; then
+        slapcat -f /etc/ldap/slapd.conf > /var/backups/${DATE}-startup-data.ldif
+    fi
 fi
 
 # run

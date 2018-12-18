@@ -38,11 +38,10 @@ ENV GROUP                    "$USER"
 ADD samba.schema /etc/openldap/schema/samba.schema
 ADD openssh-lpk.schema /etc/openldap/schema/openssh-lpk.schema
 ADD ldapns.schema /etc/openldap/schema/ldapns.schema
-RUN apk add --no-cache openldap openldap-clients openldap-back-$backend ${overlays}
-RUN addgroup $USER $SHARED_GROUP_NAME
-RUN mkdir /run/openldap
-RUN chown $USER.$GROUP /run/openldap
-RUN /cleanup.sh
+RUN apk add --no-cache --purge --clean-protected -u openldap openldap-clients openldap-back-$backend ${overlays} \
+ && addgroup $USER $SHARED_GROUP_NAME \
+ && mkdir /run/openldap \
+ && chown $USER.$GROUP /run/openldap
 
 EXPOSE 389
 EXPOSE 636
