@@ -96,6 +96,32 @@ else
     fi
 fi
 
+# add custom schemas
+if test -e "${CUSTOM_SCHEMAS}"; then
+    echo "add custom schemas";
+    find "${CUSTOM_SCHEMAS}" -type f -name '*.schema' \
+        -exec sh -c 'echo "include {}" >> /etc/ldap/slapd.conf' +
+fi
+
+function runInitScript {
+
+    echo "wait server for initializing"
+    exit_code=1
+    while [ $exit_code -ne 0 ]
+    do
+        ldapurl
+        exit_code=$?
+        sleep 1
+    done
+
+    echo "run initialization script"
+    ldapmodify -a -c -D "cn=admin,${BASEDN}" -w "${PASSWORD}" -f "${INIT_SCRIPT}"
+}
+
+if test -e "${INIT_SCRIPT}"; then
+    runInitScript &
+fi
+
 # run
 mkdir -p /var/lib/openldap/run
 chown -R ${USER}.${GROUP} /var/lib/ldap /etc/ldap /var/lib/openldap
