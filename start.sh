@@ -40,6 +40,9 @@ echo "$ACCESS_RULES" | sed 's, access to,\
 access to,g;s, by,\
 \tby,g' >> /etc/ldap/slapd.conf
 rm /tmp/update-config.sed
+# Add additional indexes to the end of the slapd.conf file
+echo "$INDEXES" | sed 's, index,\
+index,g' >> /etc/ldap/slapd.conf
 if test "$MEMBEROF" = "1"; then
     cat >> /etc/ldap/slapd.conf <<EOF
 moduleload refint

@@ -18,6 +18,8 @@ Environment Variables:
     If not given, a password is generated and written to docker logs.
 - `DEBUG` (optional) 
     Specifies the debug level, defaults to 0 (no debug output)
+- `INDEXES` (optional) 
+    A list of indexes that the LDAP server should maintain, separated by spaces, e.g.: ` index uid eq index cn eq`.
 
 Ports:
 - 389 (LDAP and LDAP+startTLS)
