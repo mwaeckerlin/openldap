@@ -109,11 +109,8 @@ fi
 function runInitScript {
 
     echo "wait server for initializing"
-    exit_code=1
     until ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"; do
-        echo "Sleeping 1"
         sleep 1
-        echo "Done sleeping 1"
     done
 
     echo "run initialization script"
