@@ -109,11 +109,7 @@ fi
 function runInitScript {
 
     echo "wait server for initializing"
-    exit_code=1
-    while [ $exit_code -ne 0 ]
-    do
-        ldapurl
-        exit_code=$?
+    until ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"; do
         sleep 1
     done
 
