@@ -112,7 +112,7 @@ function runInitScript {
     exit_code=1
     while [ $exit_code -ne 0 ]
     do
-        ldapurl
+        ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"
         exit_code=$?
         sleep 1
     done
