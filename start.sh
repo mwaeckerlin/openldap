@@ -110,11 +110,8 @@ function runInitScript {
 
     echo "wait server for initializing"
     exit_code=1
-    while [ $exit_code -ne 0 ]
-    do
-        ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"
-        exit_code=$?
-        echo "Exit code is: ${exit_code}"
+    until ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"; do
+        echo "Sleeping 1"
         sleep 1
         echo "Done sleeping 1"
     done
