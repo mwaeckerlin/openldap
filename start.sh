@@ -114,7 +114,9 @@ function runInitScript {
     do
         ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"
         exit_code=$?
+        echo "Exit code is: ${exit_code}"
         sleep 1
+        echo "Done sleeping 1"
     done
 
     echo "run initialization script"
