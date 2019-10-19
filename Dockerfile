@@ -38,7 +38,7 @@ ENV GROUP                    "$USER"
 ADD samba.schema /etc/openldap/schema/samba.schema
 ADD openssh-lpk.schema /etc/openldap/schema/openssh-lpk.schema
 ADD ldapns.schema /etc/openldap/schema/ldapns.schema
-RUN apk add --no-cache --purge --clean-protected -u openldap openldap-clients openldap-back-$backend ${overlays} \
+RUN apk add --no-cache --purge --clean-protected -u openldap openldap-clients openldap-back-$backend ${overlays} pwgen \
  && addgroup $USER $SHARED_GROUP_NAME \
  && mkdir /run/openldap \
  && chown $USER.$GROUP /run/openldap

@@ -14,11 +14,7 @@ if test -z "${PASSWORD}"; then
     if test -e /etc/ldap/password; then
         export PASSWORD="$(cat /etc/ldap/password)"
     else
-	apk update --no-cache > /dev/null
-	apk add --no-cache pwgen > /dev/null
         export PASSWORD=$(pwgen 20 1)
-	apk del --purge pwgen > /dev/null
-	/cleanup.sh
 	echo "password: $PASSWORD"
         echo "$PASSWORD" > /etc/ldap/password
 	chmod go= /etc/ldap/password
