@@ -36,6 +36,9 @@ echo "$ACCESS_RULES" | sed 's, access to,\
 access to,g;s, by,\
 \tby,g' >> /etc/ldap/slapd.conf
 rm /tmp/update-config.sed
+# Add additional indexes to the end of the slapd.conf file
+echo "$INDEXES" | sed 's, index,\
+index,g' >> /etc/ldap/slapd.conf
 if test "$MEMBEROF" = "1"; then
     cat >> /etc/ldap/slapd.conf <<EOF
 moduleload refint
@@ -90,6 +93,28 @@ else
     if test -n "$(ls -A /var/lib/ldap)"; then
         slapcat -f /etc/ldap/slapd.conf > /var/backups/${DATE}-startup-data.ldif
     fi
+fi
+
+# add custom schemas
+if test -e "${CUSTOM_SCHEMAS}"; then
+    echo "add custom schemas";
+    find "${CUSTOM_SCHEMAS}" -type f -name '*.schema' \
+        -exec sh -c 'echo "include {}" >> /etc/ldap/slapd.conf' +
+fi
+
+function runInitScript {
+
+    echo "wait server for initializing"
+    until ldapwhoami -D "cn=admin,${BASEDN}" -w "${PASSWORD}"; do
+        sleep 1
+    done
+
+    echo "run initialization script"
+    ldapmodify -a -c -D "cn=admin,${BASEDN}" -w "${PASSWORD}" -f "${INIT_SCRIPT}"
+}
+
+if test -e "${INIT_SCRIPT}"; then
+    runInitScript &
 fi
 
 # run
