@@ -1,7 +1,7 @@
 FROM mwaeckerlin/base
 MAINTAINER mwaeckerlin
 ARG backend="mdb"
-ARG overlays=""
+ARG overlays="openldap-overlay-ppolicy"
 ENV DOMAIN                    ""
 ENV PASSWORD                  ""
 ENV DEBUG                     1

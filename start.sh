@@ -53,6 +53,22 @@ memberof-memberof-ad memberOf
 memberof-refint true
 EOF
 fi
+if test -n "${PASSWORD_HASH}"; then
+    case "${PASSWORD_HASH}" in
+        SSHA|CRYPT|MD5|SMD5|SHA)
+            echo "include /etc/openldap/schema/ppolicy.schema" >> /etc/ldap/slapd.conf
+            cat >> /etc/ldap/slapd.conf <<EOF
+moduleload ppolicy
+overlay ppolicy
+ppolicy_hash_cleartext
+password-hash {${PASSWORD_HASH}}
+EOF
+            ;;
+        *)
+            error "PASSWORD_HASH not one of 'SSHA, CRYPT, MD5, SMD5, SHA'"
+            ;;
+    esac
+fi
 for schema in $SCHEMAS; do
     echo "include /etc/openldap/schema/${schema}.schema" >> /etc/ldap/slapd.conf
 done
