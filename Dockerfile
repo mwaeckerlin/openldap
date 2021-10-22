@@ -1,5 +1,4 @@
 FROM mwaeckerlin/base
-MAINTAINER mwaeckerlin
 ARG backend="mdb"
 ARG overlays=""
 ENV DOMAIN                    ""

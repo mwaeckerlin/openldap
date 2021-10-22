@@ -30,6 +30,8 @@ cat > /tmp/update-config.sed <<EOF
 /^\s*rootpw\b/crootpw\t\t${PASSWD}
 /^\s*directory\b/cdirectory /var/lib/ldap
 s/^\s*access/# &/
+s/^\s*#\s*moduleload\s*back_mdb.*/moduleload back_mdb.so/
+s/^\s*#\s*modulepath/modulepath/
 EOF
 sed -f /tmp/update-config.sed /etc/openldap/slapd.conf > /etc/ldap/slapd.conf
 echo "$ACCESS_RULES" | sed 's, access to,\
