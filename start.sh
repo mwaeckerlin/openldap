@@ -30,7 +30,7 @@ cat > /tmp/update-config.sed <<EOF
 /^\s*rootpw\b/crootpw\t\t${PASSWD}
 /^\s*directory\b/cdirectory /var/lib/ldap
 s/^\s*access/# &/
-s/^\s*#\s*moduleload\s*back_mdb.*/moduleload back_mdb.so/
+s/^\s*moduleload\s*back_mdb.*/moduleload back_mdb.so/
 s/^\s*#\s*modulepath/modulepath/
 EOF
 sed -f /tmp/update-config.sed /etc/openldap/slapd.conf > /etc/ldap/slapd.conf
@@ -89,7 +89,7 @@ fi
 if test -e /var/restore/*data.ldif; then
     rm -r /var/lib/ldap/* || true
     slapadd -f /etc/ldap/slapd.conf -l /var/restore/*data.ldif 2> /dev/null
-    mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif
+    mv /var/restore/*data.ldif /var/backups/${DATE}-restored-data.ldif || true
 else
     # backup status quo
     if test -n "$(ls -A /var/lib/ldap)"; then
