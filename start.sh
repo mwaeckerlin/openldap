@@ -82,6 +82,7 @@ TLSCACertificateFile /ssl/${DOMAIN}-ca.crt
 #TLSCACertificatePath /usr/share/ca-certificates/mozilla
 EOF
     SSL_HOSTS=" ldaps:/// ldapi:///"
+else
     SSL_HOSTS=""
 fi
 
