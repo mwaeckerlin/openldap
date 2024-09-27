@@ -20,6 +20,13 @@ Environment Variables:
     Specifies the debug level, defaults to 0 (no debug output)
 - `INDEXES` (optional) 
     A list of indexes that the LDAP server should maintain, separated by spaces, e.g.: ` index uid eq index cn eq`.
+- `PASSWORD_HASH` (optional) 
+    A password hashing scheme for the openldap server when storing passwords (see [the docs](https://openldap.org/doc/admin24/security.html#Password%20Storage) for more info). Options are:
+    * `SSHA`
+    * `CRYPT`
+    * `MD5`
+    * `SMD5`
+    * `SHA`
 
 Ports:
 - 389 (LDAP and LDAP+startTLS)
