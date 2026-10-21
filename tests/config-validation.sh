@@ -79,6 +79,10 @@ _reject schemas_unknown         SCHEMAS        "cosine no-such-schema"
 _reject schemas_path            SCHEMAS        "cosine ../../etc/passwd"
 _reject custom_schemas_relative CUSTOM_SCHEMAS "schemas"
 _reject init_script_relative    INIT_SCRIPT    "init.ldif"
+_reject init_ldif_control       INIT_LDIF      $'dn: dc=example,dc=com\x01'
+_reject custom_schema_injection CUSTOM_SCHEMA  $'attributetype ( 1.2.3 NAME \'x\' )\nrootpw secret'
+_reject custom_schema_include   CUSTOM_SCHEMA  "include /etc/ldap/password"
+_reject custom_schema_indented_first CUSTOM_SCHEMA $'# comment\n  rootpw secret'
 
 _accept defaults
 _accept explicit_values \
@@ -90,6 +94,9 @@ _accept explicit_values \
     -e MEMBEROF=1 \
     -e CUSTOM_SCHEMAS=/var/schemas \
     -e INIT_SCRIPT=/var/init/init.ldif
+_accept inline_ldif_and_schema \
+    -e INIT_LDIF=$'# entry\ndn: dc=example,dc=com\r\nobjectClass: domain\n\tdc: example\n' \
+    -e CUSTOM_SCHEMA=$'# comment\nattributetype ( 1.2.840.113556.1.4.8\n\tNAME \'userAccountControl\'\n  SINGLE-VALUE )\n\nObjectClass ( 1.2.840.113556.1.5.9 NAME \'user\' SUP top AUXILIARY )\nobjectidentifier x 1.2.3\nldapsyntax ( 1.2.3.4 DESC \'x\' )'
 _accept every_shipped_schema \
     -e SCHEMAS='cosine inetorgperson nis samba openssh-lpk ldapns misc openldap collective corba duaconf dyngroup java'
 

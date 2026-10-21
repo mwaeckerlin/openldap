@@ -45,7 +45,9 @@ ENV CONTAINERNAME="openldap" \
     MEMBEROF="0" \
     MAXSIZE="10737418240" \
     CUSTOM_SCHEMAS="" \
-    INIT_SCRIPT=""
+    CUSTOM_SCHEMA="" \
+    INIT_SCRIPT="" \
+    INIT_LDIF=""
 EXPOSE 389 636
 VOLUME /ssl /etc/ldap /var/lib/ldap /var/backups /var/restore
 USER ldap

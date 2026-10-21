@@ -5,6 +5,7 @@
 #            persistence checks use
 # generated  no PASSWORD: the image generates one and keeps it in /etc/ldap
 # init       INIT_SCRIPT and CUSTOM_SCHEMAS with the files of example/
+# example    example/docker-compose.yaml as delivered: INIT_LDIF and CUSTOM_SCHEMA inline
 # open       ACCESS_RULES and SCHEMAS of its own
 # restored   fresh volumes, started on a backup of openldap in /var/restore
 # tls        certificates in the layout /ssl/live/<domain>/
@@ -58,6 +59,14 @@ services:
       PASSWORD: e2e-admin-password
       INIT_SCRIPT: /var/init/init.ldif
       CUSTOM_SCHEMAS: /var/schemas
+    networks: [net]
+    healthcheck: *healthcheck
+
+  example:
+    extends:
+      file: ../example/docker-compose.yaml
+      service: openldap
+    ports: !reset []
     networks: [net]
     healthcheck: *healthcheck
 

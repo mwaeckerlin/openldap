@@ -20,7 +20,7 @@ docker run -d --name openldap \
     mwaeckerlin/openldap
 ```
 
-The administrator is `cn=admin,dc=my-company,dc=com` with the password `1234567890`; Apache Directory Studio, `ldapsearch` or LAM connect to `ldap://localhost:389`. The server does not create the base entry `dc=my-company,dc=com`: add it with the administrator, with `INIT_SCRIPT`, or let LAM create it on its first login.
+The administrator is `cn=admin,dc=my-company,dc=com` with the password `1234567890`; Apache Directory Studio, `ldapsearch` or LAM connect to `ldap://localhost:389`. The server does not create the base entry `dc=my-company,dc=com`: add it with the administrator, with `INIT_LDIF` or `INIT_SCRIPT`, or let LAM create it on its first login.
 
 ## Configuration
 
@@ -33,15 +33,37 @@ The administrator is `cn=admin,dc=my-company,dc=com` with the password `12345678
 | `INDEXES` | *(empty)* | Indexes besides `index objectClass eq`, written as `index uid eq index cn eq,sub`. |
 | `MEMBEROF` | `0` | `1` maintains `memberOf` on every member of a `groupOfNames` and removes deleted entries from every group. |
 | `CUSTOM_SCHEMAS` | *(empty)* | Directory whose `*.schema` files, also in subdirectories, are loaded after `SCHEMAS`. |
+| `CUSTOM_SCHEMA` | *(empty)* | Schema text, loaded after `CUSTOM_SCHEMAS`: lines starting with `attributetype`, `objectclass`, `objectidentifier` or `ldapsyntax`, indented continuation lines and `#` comments. |
 | `INIT_SCRIPT` | *(empty)* | LDIF file applied as the administrator on every start; existing entries are reported and skipped. |
+| `INIT_LDIF` | *(empty)* | LDIF text applied as the administrator on every start, after `INIT_SCRIPT`; existing entries are reported and skipped. |
 | `DEBUG` | `256` | slapd log level, a number or a name: `256` (`stats`) logs every connection and operation with DN and result, `0` logs nothing, `-1` everything. |
 | `MAXSIZE` | `10737418240` | Largest size of the database in bytes (10 GiB). The file is sparse and only takes the space its data needs. |
 
-Every value is checked before the configuration is written: `DOMAIN` takes letters, digits, `-` and `.`; `PASSWORD` takes every character but a line break; `ACCESS_RULES` must start with `access to` and stay on one line; `INDEXES` must start with `index`; `MEMBEROF` is `0` or `1`; `SCHEMAS` names files the image carries; `CUSTOM_SCHEMAS` and `INIT_SCRIPT` are absolute paths of letters, digits and `/._-`; `MAXSIZE` is a number. Any other value stops the container with `invalid <VARIABLE>` and the reason.
+Every value is checked before the configuration is written: `DOMAIN` takes letters, digits, `-` and `.`; `PASSWORD` takes every character but a line break; `ACCESS_RULES` must start with `access to` and stay on one line; `INDEXES` must start with `index`; `MEMBEROF` is `0` or `1`; `SCHEMAS` names files the image carries; `CUSTOM_SCHEMAS` and `INIT_SCRIPT` are absolute paths of letters, digits and `/._-`; `INIT_LDIF` and `CUSTOM_SCHEMA` take text without control characters but tab and line break, and `CUSTOM_SCHEMA` only schema definitions, so it cannot add a directive such as `include` or `rootpw` to the configuration; `MAXSIZE` is a number. Any other value stops the container with `invalid <VARIABLE>` and the reason.
 
 Schemas in the image: those of OpenLDAP in `/etc/openldap/schema` (`cosine`, `inetorgperson`, `nis`, `misc`, `openldap`, `collective`, `corba`, `duaconf`, `dyngroup`, `java` and more) and three of this image: `samba` (Samba accounts and group maps), `openssh-lpk` (SSH public keys), `ldapns` (LDAP name service).
 
-`INIT_SCRIPT` and `CUSTOM_SCHEMAS` read files that a volume or a derived image puts into the container. A derived image, as the test stack builds one:
+`INIT_LDIF` and `CUSTOM_SCHEMA` carry the entries and the schema in the compose file itself, as a YAML block; a literal `$` is written `$$` there:
+
+```yaml
+services:
+  openldap:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      CUSTOM_SCHEMA: |
+        attributetype ( 1.2.840.113556.1.4.8
+          NAME 'userAccountControl'
+          SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+          SINGLE-VALUE )
+      INIT_LDIF: |
+        dn: dc=example,dc=com
+        dc: example
+        objectClass: top
+        objectClass: domain
+```
+
+[example/docker-compose.yaml](example/docker-compose.yaml) is a complete stack in this form. `INIT_SCRIPT` and `CUSTOM_SCHEMAS` read files that a derived image puts into the container instead, as the test stack builds one with [example/init.ldif](example/init.ldif) and [example/schemas/](example/schemas/):
 
 ```dockerfile
 FROM mwaeckerlin/openldap
@@ -49,7 +71,7 @@ COPY init.ldif /var/init/init.ldif
 COPY schemas /var/schemas
 ```
 
-[example/](example/) holds an LDIF file, a custom schema and a compose file that mounts both.
+Where both forms are set, the files are loaded first: the schemas of `CUSTOM_SCHEMAS` before `CUSTOM_SCHEMA`, the entries of `INIT_SCRIPT` before `INIT_LDIF`.
 
 ## Ports
 
@@ -173,10 +195,10 @@ runs four suites and fails on any single error:
 1. **Docs contract** (`tests/docs-contract.sh`) — every feature of [FEATURES.md](FEATURES.md) has a test in [TESTS.md](TESTS.md).
 2. **Image contract** (`tests/image-contract.sh`) — the image is headless: no `/bin/sh`, no bash, no busybox, no perl.
 3. **Config validation** (`tests/config-validation.sh`) — every unusable value is refused, every usable one accepted.
-4. **Functional e2e** (`tests/run.sh`, via `tests/docker-compose.yml`) — servers for every documented use against a client container with the OpenLDAP client tools: writing and reading, access rules, memberOf, schemas, indexes, persistence, backup and restore with its failure cases, the generated password, `INIT_SCRIPT` with the files of [example/](example/), both TLS layouts, the health check and the clean stop.
+4. **Functional e2e** (`tests/run.sh`, via `tests/docker-compose.yml`) — servers for every documented use against a client container with the OpenLDAP client tools: writing and reading, access rules, memberOf, schemas, indexes, persistence, backup and restore with its failure cases, the generated password, `INIT_SCRIPT` with the files of [example/](example/), `INIT_LDIF` and `CUSTOM_SCHEMA` from [example/docker-compose.yaml](example/docker-compose.yaml), both TLS layouts, the health check and the clean stop.
 
 The image is built in three stages, as `mwaeckerlin/redis` and the images of `mwaeckerlin/mailservice`:
 
-1. **`init`** — compiles `init.cpp` statically. The program validates the environment, writes `/etc/ldap/slapd.conf`, runs the backup or the restore with `slapcat` and `slapadd`, starts `slapd`, applies `INIT_SCRIPT` with `ldapmodify` once the administrator can bind, passes `SIGTERM` and `SIGINT` to `slapd`, and with `--healthcheck` binds as the administrator.
+1. **`init`** — compiles `init.cpp` statically. The program validates the environment, writes `/etc/ldap/slapd.conf`, writes `CUSTOM_SCHEMA` and `INIT_LDIF` to `/run/openldap/custom.schema` and `/run/openldap/init.ldif`, runs the backup or the restore with `slapcat` and `slapadd`, starts `slapd`, applies `INIT_SCRIPT` and `INIT_LDIF` with `ldapmodify` once the administrator can bind, passes `SIGTERM` and `SIGINT` to `slapd`, and with `--healthcheck` binds as the administrator.
 2. **`build`** — creates the user `ldap` (uid 102, group `shared-access`) on `mwaeckerlin/very-base`, installs the Alpine packages of OpenLDAP with the backend `mdb` and the overlays `memberof` and `refint`, and collects `slapd`, `ldapmodify`, the modules and their libraries. The build arguments `backend` (default `mdb`) and `overlays` (further Alpine packages) select more packages.
 3. **runtime** — `FROM mwaeckerlin/scratch` with the collected files, `USER ldap`, `ENTRYPOINT ["/usr/bin/init"]`.

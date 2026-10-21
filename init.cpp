@@ -9,8 +9,9 @@ OpenLDAP init: shell-free entrypoint and PID 1 of the openldap container.
   3. Writes /etc/ldap/slapd.conf.
   4. Restores the one file /var/restore/*data.ldif, or else saves the existing
      database to /var/backups/<date>-startup-data.ldif.
-  5. Starts slapd, applies INIT_SCRIPT once slapd accepts the administrator,
-     passes SIGTERM and SIGINT on to slapd and ends with its exit status.
+  5. Starts slapd, applies INIT_SCRIPT and then INIT_LDIF once slapd accepts
+     the administrator, passes SIGTERM and SIGINT on to slapd and ends with
+     its exit status.
 
 `--healthcheck` binds as the administrator on 127.0.0.1:389 and succeeds only
 on the LDAP result `success`.
@@ -19,6 +20,7 @@ on the LDAP result `success`.
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <cctype>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
@@ -37,6 +39,7 @@ on the LDAP result `success`.
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -54,6 +57,8 @@ constexpr const char *RESTORE_TMP   = "/var/lib/ldap/.restore";
 constexpr const char *BACKUPS       = "/var/backups";
 constexpr const char *RESTORE       = "/var/restore";
 constexpr const char *SCHEMA_DIR    = "/etc/openldap/schema";
+constexpr const char *INLINE_SCHEMA = "/run/openldap/custom.schema";
+constexpr const char *INLINE_LDIF   = "/run/openldap/init.ldif";
 constexpr const char *LDAPI         = "ldapi://%2Frun%2Fopenldap%2Fldapi";
 constexpr int LDAP_PORT             = 389;
 
@@ -88,6 +93,19 @@ printable(const std::string &v) {
 }
 
 bool
+text(const std::string &v) {
+  for (unsigned char c : v)
+    if ((c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c == 0x7f) return false;
+  return true;
+}
+
+std::string
+lower(std::string v) {
+  std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return v;
+}
+
+bool
 only(const std::string &v, const std::string &allowed) {
   return !v.empty() && v.find_first_not_of(allowed) == std::string::npos;
 }
@@ -117,6 +135,27 @@ trim(const std::string &v) {
   return v.substr(first, v.find_last_not_of(" \t\r\n") - first + 1);
 }
 
+// true when every line that starts in the first column is a schema directive, so no slapd directive can follow
+bool
+schema_only(const std::string &v) {
+  static const std::vector<std::string> directives = {"attributetype", "attributetypes", "objectclass",
+                                                      "objectclasses", "objectidentifier", "ldapsyntax"};
+  bool seen = false;
+  std::istringstream in(v);
+  for (std::string line; std::getline(in, line);) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (trim(line).empty() || line.front() == '#') continue;
+    if (line.front() == ' ' || line.front() == '\t') {
+      if (!seen) return false;
+      continue;
+    }
+    const std::string word = lower(line.substr(0, line.find_first_of(" \t(")));
+    if (std::find(directives.begin(), directives.end(), word) == directives.end()) return false;
+    seen = true;
+  }
+  return seen;
+}
+
 std::string
 read_file(const fs::path &p) {
   std::ifstream in(p, std::ios::binary);
@@ -141,7 +180,7 @@ write_file(const fs::path &p, const std::string &content, mode_t mode) {
 struct Config {
   std::string domain, basedn, admin, password, debug, access, indexes, maxsize;
   std::vector<std::string> schemas, custom_schemas;
-  std::string init_script;
+  std::string init_script, init_ldif, custom_schema;
   bool memberof = false;
   std::string tls_cert, tls_key, tls_ca;
 };
@@ -212,6 +251,14 @@ read_config() {
   c.init_script = env_or("INIT_SCRIPT");
   if (!c.init_script.empty() && (!only(c.init_script, PATH_CHARS) || c.init_script.front() != '/'))
     invalid("INIT_SCRIPT", "an absolute path is expected");
+
+  c.init_ldif = trim(env_or("INIT_LDIF"));
+  if (!text(c.init_ldif)) invalid("INIT_LDIF", "LDIF text without control characters is expected");
+
+  c.custom_schema = trim(env_or("CUSTOM_SCHEMA"));
+  if (!c.custom_schema.empty() && (!text(c.custom_schema) || !schema_only(c.custom_schema)))
+    invalid("CUSTOM_SCHEMA", "schema text is expected: lines starting with attributetype, objectclass, "
+                             "objectidentifier or ldapsyntax, indented continuation lines and # comments");
 
   const fs::path live = fs::path("/ssl/live") / c.domain;
   const fs::path flat = "/ssl";
@@ -312,6 +359,7 @@ slapd_conf(const Config &c, const std::string &rootpw, const std::string &direct
   conf += "include " + std::string(SCHEMA_DIR) + "/core.schema\n";
   for (const auto &s : c.schemas) conf += "include " + std::string(SCHEMA_DIR) + "/" + s + ".schema\n";
   for (const auto &s : c.custom_schemas) conf += "include " + s + "\n";
+  if (!c.custom_schema.empty()) conf += "include " + std::string(INLINE_SCHEMA) + "\n";
   conf += "modulepath /usr/lib/openldap\n";
   conf += "moduleload back_mdb.so\n";
   if (c.memberof) conf += "moduleload refint.so\nmoduleload memberof.so\n";
@@ -520,6 +568,8 @@ int main(int argc, char *argv[]) try {
   const std::string rootpw = run_output(std::string(SBIN) + "slappasswd",
                                         {"slappasswd", "-h", "{SSHA}", "-T", SECRET_FILE});
 
+  if (!config.custom_schema.empty()) write_file(INLINE_SCHEMA, config.custom_schema + "\n", 0600);
+  if (!config.init_ldif.empty()) write_file(INLINE_LDIF, config.init_ldif + "\n", 0600);
   write_file(CONF, slapd_conf(config, rootpw, DATA, true), 0600);
   restore_or_backup(config, rootpw);
 
@@ -531,29 +581,34 @@ int main(int argc, char *argv[]) try {
 
   int status = 0;
   bool ended = false;
+  std::vector<std::pair<std::string, std::string>> ldifs;
   if (!config.init_script.empty()) {
-    if (!fs::is_regular_file(config.init_script)) {
+    if (fs::is_regular_file(config.init_script))
+      ldifs.emplace_back("INIT_SCRIPT", config.init_script);
+    else
       std::cerr << "**** INIT_SCRIPT: " << config.init_script << " does not exist, nothing applied" << std::endl;
-    } else {
-      while (!stopping && bind_result(config.admin, password) != 0) {
-        const pid_t done = waitpid(slapd, &status, WNOHANG);
-        if (done == slapd) {
-          ended = true;
-          break;
-        }
-        sleep(1);
+  }
+  if (!config.init_ldif.empty()) ldifs.emplace_back("INIT_LDIF", INLINE_LDIF);
+  if (!ldifs.empty()) {
+    while (!stopping && bind_result(config.admin, password) != 0) {
+      const pid_t done = waitpid(slapd, &status, WNOHANG);
+      if (done == slapd) {
+        ended = true;
+        break;
       }
-      if (!ended && !stopping) {
-        std::cerr << "**** applying INIT_SCRIPT " << config.init_script << std::endl;
-        const pid_t modify = spawn(LDAPMODIFY, {"ldapmodify", "-a", "-c", "-x", "-H", "ldap://127.0.0.1:389",
-                                                "-D", config.admin, "-y", SECRET_FILE, "-f", config.init_script});
-        int modify_status = 0;
-        while (waitpid(modify, &modify_status, 0) < 0 && errno == EINTR) {}
-        const int rc = WIFEXITED(modify_status) ? WEXITSTATUS(modify_status) : 128 + WTERMSIG(modify_status);
-        if (rc != 0)
-          std::cerr << "**** INIT_SCRIPT ended with exit status " << rc
-                    << "; every entry that could be added or changed is applied, the errors above name the others" << std::endl;
-      }
+      sleep(1);
+    }
+    for (const auto &[name, file] : ldifs) {
+      if (ended || stopping) break;
+      std::cerr << "**** applying " << name << " " << file << std::endl;
+      const pid_t modify = spawn(LDAPMODIFY, {"ldapmodify", "-a", "-c", "-x", "-H", "ldap://127.0.0.1:389",
+                                              "-D", config.admin, "-y", SECRET_FILE, "-f", file});
+      int modify_status = 0;
+      while (waitpid(modify, &modify_status, 0) < 0 && errno == EINTR) {}
+      const int rc = WIFEXITED(modify_status) ? WEXITSTATUS(modify_status) : 128 + WTERMSIG(modify_status);
+      if (rc != 0)
+        std::cerr << "**** " << name << " ended with exit status " << rc
+                  << "; every entry that could be added or changed is applied, the errors above name the others" << std::endl;
     }
   }
 

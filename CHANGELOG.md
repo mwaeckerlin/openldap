@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-10-22 **1.31.2**
+    - Initial entries and a schema of your own can be written into the compose file with `INIT_LDIF` and `CUSTOM_SCHEMA`, without mounting a file; the example stack uses them, and `INIT_SCRIPT` and `CUSTOM_SCHEMAS` work as before
+
 - 2026-10-21 **1.31.1**
     - The image is rebuilt on the current Alpine and OpenLDAP and carries no shell any more: only the server, its tools, `ldapmodify` and the start program
     - The server runs as the user `ldap`, uid 102, never as root, and still listens on 389 and 636; the README describes the upgrade of an existing installation, with an export before and the way back

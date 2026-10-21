@@ -25,12 +25,15 @@ Register of all tests, sorted by the [FEATURES.md](FEATURES.md) number each test
 - **F16** `tests/run.sh` › stops_cleanly — `docker stop` ends the container with exit status 0.
 - **F20** `tests/run.sh` › maxsize_default — the configuration carries `maxsize 10737418240`.
 - **F21** `tests/run.sh` › build_argument_overlays — an image built with `overlays=openldap-overlay-unique` carries `unique.so`.
+- **F22** `tests/run.sh` › custom_schema_inline_configured, custom_schema_default_unset, init_ldif_with_inline_schema, init_ldif_again_on_restart, init_ldif_default_unset — `example/docker-compose.yaml` as delivered, with `INIT_LDIF` and `CUSTOM_SCHEMA` inline and no mount: `slapd.conf` includes `/run/openldap/custom.schema`, `uid=user1` carries `userAccountControl` of that schema, a restart that applies the text again keeps the server running; a server without the two variables includes no inline schema and applies no `INIT_LDIF`.
 
 ## Config validation (`tests/config-validation.sh`)
 
 - **F1** reject_domain_missing, reject_domain_bad, reject_domain_injection, reject_domain_empty_label — a missing or malformed `DOMAIN` stops the container.
 - **F17** reject_password_line_break, reject_debug_bad, reject_maxsize_bad, reject_access_rules_injection, reject_access_rules_bad, reject_indexes_injection, reject_indexes_bad, reject_memberof_bad, reject_schemas_unknown, reject_schemas_path, reject_custom_schemas_relative, reject_init_script_relative — every unusable value stops the container with `invalid <VARIABLE>`.
 - **F17** accept_defaults, accept_explicit_values, accept_every_shipped_schema — the defaults, a password with spaces, quotes and backslash, the old README form of `INDEXES` and every schema the image ships pass.
+
+- **F22** reject_init_ldif_control, reject_custom_schema_injection, reject_custom_schema_include, reject_custom_schema_indented_first, accept_inline_ldif_and_schema — `INIT_LDIF` with a control character and `CUSTOM_SCHEMA` with a `rootpw` line, an `include` or an indented line before the first definition stop the container; multi-line LDIF and schema text with tabs, CR LF, comments, blank lines and every allowed directive in any case pass.
 
 ## Image contract
 

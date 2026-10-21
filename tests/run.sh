@@ -56,7 +56,7 @@ echo "==> Writing test certificates..."
 _dc run --rm certs > /dev/null
 
 echo "==> Starting test stack..."
-_dc up -d --wait openldap generated init open tls tls-flat
+_dc up -d --wait openldap generated init example open tls tls-flat
 _dc up -d plain overlays client
 
 DIRECTORY="dn: ${BASE}
@@ -311,6 +311,36 @@ if _wait_bind init "${ADMIN}" "${PW}" && [[ "$(_search init '(uid=user2)' uid)" 
     _pass "init_script_again_on_restart"
 else
     _fail "init_script_again_on_restart" "the server did not come back with the entries of INIT_SCRIPT"
+fi
+
+# F22: INIT_LDIF and CUSTOM_SCHEMA inline, from example/docker-compose.yaml as delivered
+EXAMPLE_CONF="$(_dc cp example:/etc/ldap/slapd.conf - | tar -xO)"
+if [[ "${EXAMPLE_CONF}" == *$'\ninclude /run/openldap/custom.schema\n'* ]]; then
+    _pass "custom_schema_inline_configured"
+else
+    _fail "custom_schema_inline_configured" "slapd.conf of the example includes no /run/openldap/custom.schema"
+fi
+if [[ "${CONF}" != *"/run/openldap/custom.schema"* ]]; then
+    _pass "custom_schema_default_unset"
+else
+    _fail "custom_schema_default_unset" "slapd.conf without CUSTOM_SCHEMA includes /run/openldap/custom.schema"
+fi
+_example() { _client ldapsearch -x -LLL -H ldap://example -D "${ADMIN}" -w 123 -b "${BASE}" "$@" 2>&1 || true; }
+if [[ "$(_example '(uid=user1)' userAccountControl)" == *"userAccountControl: 512"* ]]; then
+    _pass "init_ldif_with_inline_schema"
+else
+    _fail "init_ldif_with_inline_schema" "uid=user1 with userAccountControl missing: $(_logs example | tail -5)"
+fi
+_dc restart example > /dev/null 2>&1
+if _wait_bind example "${ADMIN}" 123 && [[ "$(_example '(uid=user2)' uid)" == *"uid: user2"* ]]; then
+    _pass "init_ldif_again_on_restart"
+else
+    _fail "init_ldif_again_on_restart" "the server did not come back with the entries of INIT_LDIF"
+fi
+if [[ "$(_logs openldap)" != *"applying INIT_LDIF"* ]]; then
+    _pass "init_ldif_default_unset"
+else
+    _fail "init_ldif_default_unset" "a server without INIT_LDIF applied INIT_LDIF"
 fi
 
 # F5, F8: ACCESS_RULES and SCHEMAS of its own
