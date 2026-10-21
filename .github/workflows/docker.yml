@@ -1,0 +1,23 @@
+# Builds the images of this repository for amd64 and arm64 and publishes them
+# on Docker Hub, on every push to the default branch and once a week for the
+# security fixes of the base images. The build itself is the reusable workflow
+# docker-image.yml of mwaeckerlin/scratch; its README explains the setup.
+
+name: docker
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    # weekly rebuild, one hour per level after the images it is built on:
+    # mwaeckerlin/scratch at 03:17, this repository at level 2
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+# one run per branch at a time; a branch never cancels the run of another
+concurrency: docker-${{ github.ref_name }}
+
+jobs:
+  docker:
+    uses: mwaeckerlin/scratch/.github/workflows/docker-image.yml@master
+    secrets: inherit

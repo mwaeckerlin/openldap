@@ -1,0 +1,172 @@
+# Functional test stack for mwaeckerlin/openldap, driven by tests/run.sh.
+#
+# openldap   the documented production setup with every volume, memberOf and
+#            two indexes; it holds the entries the ACL, schema, backup and
+#            persistence checks use
+# generated  no PASSWORD: the image generates one and keeps it in /etc/ldap
+# init       INIT_SCRIPT and CUSTOM_SCHEMAS with the files of example/
+# open       ACCESS_RULES and SCHEMAS of its own
+# restored   fresh volumes, started on a backup of openldap in /var/restore
+# tls        certificates in the layout /ssl/live/<domain>/
+# tls-flat   certificates in the layout /ssl/<domain>.*
+# tls-locked a private key the user ldap cannot read
+# plain      no healthcheck of its own: Docker takes the one of the image
+# overlays   the image built with the build argument overlays
+# certs      writes the test certificates, client runs the LDAP client tools
+name: openldap-e2e
+
+x-healthcheck: &healthcheck
+  test: ["CMD", "/usr/bin/init", "--healthcheck"]
+  interval: 2s
+  timeout: 5s
+  retries: 30
+  start_period: 3s
+
+services:
+
+  openldap:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+      MEMBEROF: "1"
+      INDEXES: " index uid eq index cn eq,sub"
+    volumes:
+      - config:/etc/ldap
+      - data:/var/lib/ldap
+      - backups:/var/backups
+      - restore:/var/restore
+    networks: [net]
+    healthcheck: *healthcheck
+
+  generated:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: generated.example
+    volumes:
+      - genconfig:/etc/ldap
+    networks: [net]
+    healthcheck: *healthcheck
+
+  init:
+    image: mwaeckerlin/openldap-init-test
+    build:
+      context: ..
+      dockerfile: tests/init/Dockerfile
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+      INIT_SCRIPT: /var/init/init.ldif
+      CUSTOM_SCHEMAS: /var/schemas
+    networks: [net]
+    healthcheck: *healthcheck
+
+  open:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+      ACCESS_RULES: "access to * by * read"
+      SCHEMAS: "cosine inetorgperson nis openssh-lpk"
+    networks: [net]
+    healthcheck: *healthcheck
+
+  restored:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+      MEMBEROF: "1"
+    volumes:
+      - rdata:/var/lib/ldap
+      - rbackups:/var/backups
+      - rrestore:/var/restore
+    networks: [net]
+    healthcheck: *healthcheck
+
+  tls:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+    volumes:
+      - ssl-live:/ssl
+    networks: [net]
+    healthcheck: *healthcheck
+
+  tls-flat:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+    volumes:
+      - ssl-flat:/ssl
+    networks: [net]
+    healthcheck: *healthcheck
+
+  tls-locked:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+    volumes:
+      - ssl-locked:/ssl
+    networks: [net]
+
+  plain:
+    image: mwaeckerlin/openldap
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+    networks: [net]
+
+  overlays:
+    image: mwaeckerlin/openldap-overlays-test
+    build:
+      context: ..
+      args:
+        overlays: openldap-overlay-unique
+    environment:
+      DOMAIN: example.com
+      PASSWORD: e2e-admin-password
+    networks: [net]
+
+  certs:
+    image: mwaeckerlin/openldap-client-test
+    build: client
+    entrypoint: ["sh", "/usr/local/bin/make-certs.sh"]
+    volumes:
+      - ssl-live:/ssl-live
+      - ssl-flat:/ssl-flat
+      - ssl-locked:/ssl-locked
+    networks: [net]
+
+  client:
+    image: mwaeckerlin/openldap-client-test
+    build: client
+    volumes:
+      - config:/config:ro
+      - data:/data:ro
+      - backups:/backups:ro
+      - restore:/restore
+      - genconfig:/genconfig:ro
+      - rbackups:/rbackups:ro
+      - rrestore:/rrestore
+      - ssl-live:/ssl-live:ro
+    networks: [net]
+
+networks:
+  net:
+
+volumes:
+  config:
+  data:
+  backups:
+  restore:
+  genconfig:
+  rdata:
+  rbackups:
+  rrestore:
+  ssl-live:
+  ssl-flat:
+  ssl-locked:

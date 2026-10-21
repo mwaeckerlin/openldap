@@ -1,0 +1,22 @@
+services:
+  openldap:
+    image: mwaeckerlin/openldap
+    build: .
+    environment:
+      DOMAIN: ${DOMAIN:-example.org}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:389:389"
+      - "${BIND_ADDRESS:-127.0.0.1}:636:636"
+    volumes:
+      - config:/etc/ldap
+      - data:/var/lib/ldap
+      - backups:/var/backups
+      - restore:/var/restore
+      - ssl:/ssl
+
+volumes:
+  config:
+  data:
+  backups:
+  restore:
+  ssl:

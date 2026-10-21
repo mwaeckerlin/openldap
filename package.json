@@ -1,0 +1,25 @@
+{
+  "name": "@mwaeckerlin/openldap",
+  "version": "1.31.1",
+  "description": "Headless OpenLDAP server, configured through environment variables",
+  "private": true,
+  "scripts": {
+    "build": "docker compose build",
+    "start": "docker compose up --build --force-recreate --remove-orphans",
+    "start:daemon": "docker compose up -d --build --force-recreate --remove-orphans",
+    "start:dev": "docker compose up --build --force-recreate --remove-orphans",
+    "stop": "docker compose down",
+    "deploy": "docker compose push",
+    "test": "npm run test:docs && npm run test:image && npm run test:config && npm run test:e2e",
+    "test:docs": "bash tests/docs-contract.sh",
+    "test:image": "npm run build && bash tests/image-contract.sh mwaeckerlin/openldap",
+    "test:config": "bash tests/config-validation.sh mwaeckerlin/openldap",
+    "test:e2e": "bash tests/run.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mwaeckerlin/openldap.git"
+  },
+  "author": "Marc Wäckerlin",
+  "license": "GPL-3.0-or-later"
+}
